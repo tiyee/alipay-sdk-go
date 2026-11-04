@@ -1,23 +1,39 @@
 # 自定义接口扩展
 
-状态：公开 API 设计草案，随 P1/P2 实现；当前仓库尚无 SDK 源码，以下示例不能作为现有可编译能力引用。版本基线为 Go 1.27，分层依据见[整体架构](architecture.md)。
+状态：V2 扩展机制已有实现；本文按新的 V3 优先要求更新目标契约与账单示例，V3 相关字段、构造入口尚待迁移实现，不能作为现有可编译 API 引用。版本基线为 Go 1.27，分层依据见[整体架构](architecture.md)，选型依据见[版本清单](api-versions.md)。
 
 ## 1. 扩展目标
 
 当 SDK 没有封装某个支付宝接口，用户可以在自己的业务项目或独立 Go 包中定义请求/响应 struct、具名枚举及 Service，通过公开 Operation 接入 SDK。无需等待 SDK 发版，不修改 SDK，不导入 `internal/`，也不注册全局方法表。
 
-这里的“未内置”指缺少业务方法封装。目标 API 仍需使用 SDK 已实现的网关协议、认证、编码和响应处理能力；扩展入口不会自动获得尚未实现的 V3、文件上传或流式下载支持。
+这里的“未内置”指缺少业务方法封装。先查对应官方 V3：有 V3 就采用 V3，确认只有 V2 才用 V2。目标协议尚未实现时等待或补齐对应能力，不能仅因已有 V2 扩展入口就改用 V2；文件上传或流式下载仍需专项支持。
 
 ## 2. 公开契约
 
 所有扩展必需类型均位于公开的 `core` 包。下列为契约草案，字段名称与实际实现需在 P1 一并固定：
 
 ```go
+type Protocol string
+
+const (
+	ProtocolV2 Protocol = "v2"
+	ProtocolV3 Protocol = "v3"
+)
+
+type HTTPMethod string
+
+const (
+	HTTPMethodGet  HTTPMethod = "GET"
+	HTTPMethodPost HTTPMethod = "POST"
+)
+
 type ParameterMode uint8
 
 const (
 	ParameterModeBizJSON ParameterMode = iota + 1
 	ParameterModeForm
+	ParameterModeJSON
+	ParameterModeQuery
 )
 
 type ResponseCode string
@@ -25,7 +41,10 @@ type ResponseCode string
 const ResponseCodeSuccess ResponseCode = "10000"
 
 type OperationSpec struct {
+	Protocol      Protocol
 	Method        string
+	HTTPMethod    HTTPMethod
+	Path          string
 	Version       string
 	ResponseKey   string
 	ParameterMode ParameterMode
@@ -33,9 +52,10 @@ type OperationSpec struct {
 }
 
 type EncodedParams struct {
-	Mode ParameterMode
-	JSON jsontext.Value
-	Form url.Values
+	Mode  ParameterMode
+	JSON  jsontext.Value
+	Form  url.Values
+	Query url.Values
 }
 
 type Encoder[T any] interface {
@@ -48,20 +68,24 @@ type Decoder[T any] interface {
 
 func NewJSONOperation[Req, Resp any](spec OperationSpec) (Operation[Req, Resp], error)
 
+func NewQueryOperation[Req, Resp any](spec OperationSpec) (Operation[Req, Resp], error)
+
 func NewOperation[Req, Resp any](spec OperationSpec,
 	encoder Encoder[Req], decoder Decoder[Resp]) (Operation[Req, Resp], error)
 ```
 
-- `NewJSONOperation` 装配 JSON v2 默认编解码器，适用于 `biz_content` 为 JSON 的接口；要求参数模式与构造入口一致。
+- `Protocol` 必填，不根据请求失败结果自动切换。V3 配置官方 HTTP 方法与相对路径；V2 才使用 `Version`、`ResponseKey` 与 `AcceptedCodes`。两种协议的专属字段混用应在发请求前失败。
+- `NewJSONOperation` 装配 JSON v2 默认编解码器；V3 `ParameterModeJSON` 编码为 HTTP JSON body，V2 `ParameterModeBizJSON` 才编码为 `biz_content`，要求模式与协议一致。
+- `NewQueryOperation` 用于 V3 GET，根据请求 struct 的 `query` 标签生成参数；默认处理字符串、具名字符串枚举和可选指针，复杂格式通过自定义 Encoder 显式实现。
 - `NewOperation` 接收用户编解码器，用于直接参数、额外的本地校验或特殊字段格式。接口不得含私有方法，外部包可以直接实现。
-- `ParameterModeForm` 表示业务字段直接编码为参数，不自动封装到 `biz_content`；最终传输仍由 Client 按网关协议构造。
-- `JSON` 与 `Form` 按模式互斥使用。已知业务字段始终定义为 struct，只有进入表单编码边界时才转为 `url.Values`。
+- `ParameterModeForm` 表示 V2 业务字段直接编码为参数；V3 GET 使用 `ParameterModeQuery`。最终 HTTP 请求由相应协议处理器构造。
+- `JSON`、`Form` 与 `Query` 按模式互斥。已知业务字段始终定义为 struct，只有进入参数编码边界时才转为 `url.Values`。
 - 构造时验证接口描述、编码器和解码器，并复制描述中的切片等可变数据；零值或不完整 Operation 在网络调用前失败。
-- `AcceptedCodes` 只配置接口业务响应策略，不能取消签名验证；处理中的响应也不代表商户业务终态成功。
+- `AcceptedCodes` 只配置 V2 业务响应策略，不能取消签名验证；V3 使用对应 HTTP 和错误模型，不假定成功响应带有 `code=10000`。
 
 ## 3. 示例：用户实现账单下载地址查询
 
-该接口不在首期内置的 5 个交易接口中，适合作为用户扩展示例。方法名、参数、枚举和响应字段依据[支付宝账单下载地址查询文档](https://opendocs.alipay.com/open/02ekfu.md)。以下仅获取下载地址，不下载账单文件，不记录地址到日志。
+该接口不在首期内置的 5 个交易接口中。官方已提供 **V3 GET** `/v3/alipay/data/dataservice/bill/downloadurl/query`，因此扩展示例必须选择 V3，依据[官方 V3 API](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayDataDataserviceBillDownloadurlApi.md#query)。以下仅获取下载地址，不下载文件、不记录地址到日志；旧 `examples/customapi` 中的 V2 调用需在迁移里程碑同步替换。
 
 模型放在用户自己的包中；示例列出交易账单类型与当前文档中的账单文件结果值，其他类型按官方契约自行增加。
 
@@ -75,9 +99,9 @@ type BillFileCode string
 const BillFileCodeEmptyData BillFileCode = "EMPTY_DATA_WITH_BILL_FILE"
 
 type BillRequest struct {
-	BillType BillType `json:"bill_type"`
-	BillDate string   `json:"bill_date"`
-	SMID     *string  `json:"smid,omitzero"`
+	BillType BillType `query:"bill_type"`
+	BillDate string   `query:"bill_date"`
+	SMID     *string  `query:"smid"`
 }
 
 type BillResponse struct {
@@ -86,18 +110,18 @@ type BillResponse struct {
 }
 ```
 
-通用响应码由 Client 统一检查；用户业务模型只需映射业务数据。下载地址与文件结果字段均按可选字段处理，未知结果枚举保留原始字符串值。`bill_date` 的日期范围及 `smid` 的适用条件由用户按目标账单类型校验，不能仅因字段类型正确就认为业务参数有效。
+V3 HTTP 与错误模型由协议处理器检查，用户模型映射对应业务数据，不添加 V2 响应外层。下载地址等字段及枚举应以 V3 schema 核对；`bill_date` 的日期范围和 `smid` 的适用条件仍需业务校验，不能仅因字段类型正确就认为参数有效。
 
 在用户包中构造 Operation：
 
 ```go
 func NewBillOperation() (core.Operation[BillRequest, BillResponse], error) {
-	return core.NewJSONOperation[BillRequest, BillResponse](core.OperationSpec{
+	return core.NewQueryOperation[BillRequest, BillResponse](core.OperationSpec{
+		Protocol:      core.ProtocolV3,
 		Method:        "alipay.data.dataservice.bill.downloadurl.query",
-		Version:       "1.0",
-		ResponseKey:   "alipay_data_dataservice_bill_downloadurl_query_response",
-		ParameterMode: core.ParameterModeBizJSON,
-		AcceptedCodes: []core.ResponseCode{core.ResponseCodeSuccess},
+		HTTPMethod:    core.HTTPMethodGet,
+		Path:          "/v3/alipay/data/dataservice/bill/downloadurl/query",
+		ParameterMode: core.ParameterModeQuery,
 	})
 }
 ```
@@ -149,7 +173,7 @@ func (s *BillService) Query(ctx context.Context,
 
 ## 5. 编解码与安全边界
 
-自定义编码器负责将具体 struct 转为业务 JSON 或直接参数，不生成公共身份、证书序列号、时间戳或签名。Client 会拦截对受保护公共参数的覆盖，使用同一套 HTTP、签名、证书、响应验证、slog 和错误处理。
+自定义编码器负责将具体 struct 转为当前协议的 JSON body、query 或 V2 业务参数，不生成身份、时间戳或签名。Client 拦截受保护参数覆盖，按显式协议使用相应签名、证书和响应验证实现，并共享 HTTP、slog 及错误接口。
 
 自定义解码器只接收通过响应验签及必要解密后的业务节点，不读取完整原始响应体，不重新决定应否验签。解码错误沿用 SDK 错误链，业务失败和安全失败不填充可信的 `Response[T].Data`。
 
@@ -159,7 +183,7 @@ func (s *BillService) Query(ctx context.Context,
 
 P1/P2 的扩展验证需在 SDK 外部包中完成，不能借助包内私有字段或测试后门：
 
-- JSON 与直接参数两类自定义 API 都能通过公开构造函数接入。
+- V3 JSON/GET query 与只有 V2 的参数扩展都能通过公开构造函数接入，V3 不套用 V2 响应结构。
 - 用户可以在自己的包中实现 Encoder、Decoder 与 Service，且只依赖公开包。
 - 错配的请求/响应类型不能通过编译；自定义枚举和嵌套 struct 不退化为动态业务字典。
 - 修改 JSON 编码或响应字段映射不改变签名验签顺序，错误签名时不会调用用户解码器。
