@@ -6,7 +6,7 @@
 
 构建一个可复用、可测试的支付宝第三方 Go SDK，采用 `core.Client` 与领域 API Service 分离的结构。调用方既能使用类型化 Service，也能通过 Client 调用尚未封装的接口，并复用相同的协议、安全和错误处理能力。
 
-接口选型遵循“有官方 V3 就使用 V3，确认只有 V2 才使用 V2”。首个测试版本的交易查询、预下单、退款、退款查询、关闭全部采用已核验的 V3 路由；页面支付、手机网站支付和 App 订单串保留 V2。共享配置、HTTP、日志与类型化流程，协议签名、验签与报文结构分别实现。
+接口选型遵循“有官方 V3 就使用 V3，确认只有 V2 才使用 V2”。首个测试版本的交易查询、预下单、退款、退款查询、关闭全部采用已核验的 V3 REST 路由；页面支付、手机网站支付和 App 订单串按各自官方 V3 文档及 `pageExecute` / `sdkExecute` 方式接入，不归类为仅 V2。共享配置、日志与类型化流程，REST 执行和本地签名产物构建分别实现。
 
 SDK 不负责商户订单持久化、分布式锁、业务幂等记录、补单任务、对账调度或资金状态机，也不强制依赖 Web 框架、数据库、缓存与日志框架。页面跳转和 App 唤端能力在后续阶段提供本地签名产物构建接口。
 
@@ -17,6 +17,7 @@ SDK 不负责商户订单持久化、分布式锁、业务幂等记录、补单�
 | 工程结构 | 单 Go module，`core/`、`services/`、`utils/` 分层 | 项目、文档与示例统一使用 alipay 命名 |
 | Go 版本 | `go 1.27.0`，使用 1.27 系列最新稳定补丁 | 直接采用该版本的正式能力，无旧版本兼容分支 |
 | 协议主线 | V3 优先，只有 V2 的能力明确保留 V2 | Operation 固定协议；按官方方法与路由实现，不自动回退 |
+| 调用方式 | REST、页面跳转、App 签名数据分别建模 | 文档版本不代替调用方式；V3 SDK 的通用执行支持不能只查 REST 清单 |
 | 初始化 | `core.NewClient` 配合 `core/option`；Service 通过构造函数注入 | 配置校验集中，Service 易于替换执行器进行测试 |
 | 配置作用域 | Client 级静态配置与请求级选项分开 | 同一 Client 并发调用时，不发生商家令牌与回调地址串用 |
 | 数据模型 | 已知数据使用具名 struct，嵌套对象使用具体类型 | 动态键值仅用于协议边界；枚举使用具名类型与带类型常量 |
@@ -314,7 +315,9 @@ RSA2 与请求处理依据[签名规范](https://opendocs.alipay.com/common/057k
 
 后续通过独立的构建入口生成支付 URL、HTML Form 或 App 订单字符串，复用公共参数与签名能力，但不调用服务端 HTTP 执行入口。建议分别命名为 `BuildPageURL`、`BuildPageForm`、`BuildAppOrder`，最终名称在对应阶段固化。
 
-HTML Form 使用安全模板转义字段和值，不将业务字符串直接拼接成标签。页面返回地址不作为支付完成的可信证据。协议差异以[页面跳转说明](https://opendocs.alipay.com/common/0i2kxr.md)和[唤端说明](https://opendocs.alipay.com/common/0i2jez.md)为准。
+接入依据为官方 V3 [page.pay](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay)、[wap.pay](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay)、[app.pay](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay) 及 V3 SDK `GenericExecuteApi`。页面接口明确返回 `pageRedirectionData`，App 返回 `orderStr`，不因生成器 REST 清单中缺少它们就标记仅 V2。
+
+调用方式采用具名枚举与相应产物类型区分，页面构建不伪造 `/v3/...` REST 路由。签名产物按文档保留 `method`、`version=1.0`、`biz_content` 等实际格式。HTML Form 使用安全模板转义，页面返回地址不作为支付完成的可信证据。
 
 ### 7.2 支付异步通知
 

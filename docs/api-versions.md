@@ -1,4 +1,4 @@
-# 接口版本选型与 V2 保留清单
+# 接口文档、调用方式与协议选型
 
 核验日期：2026-11-05。本文决定接口的目标协议；当前代码是否实现、离线或沙箱是否验证，分别见[覆盖记录](api-coverage.md)。
 
@@ -7,34 +7,42 @@
 **同一能力有官方 V3 接口时使用 V3；确认只有 V2 的接口才使用 V2。** 此规则同时适用于内置 Service 与用户自定义 API。
 
 - 本文的 V2 指传统 AOP 网关协议，通常通过 `gateway.do`、`method`、`biz_content` 调用；其公共参数 `version=1.0` 不代表它是 V1 协议。
-- V3 指官方 OpenAPI 描述中的实际 HTTP 方法与 `/v3/...` 路由。不能只看文档页面是否位于 `open-v3` 路径，也不能将路径中的点号机械替换为斜杠来猜路由。
+- 区分官方文档版本、SDK 支持方式与实际报文。V3 文档和 V3 SDK 同时包含 REST API、页面跳转与 App 订单串等场景，不能将 V3 支持范围等同于自动生成的 REST 清单。
+- REST API 按官方 HTTP 方法与 `/v3/...` 路由调用；页面/唤端按该接口的 V3 文档与 SDK 示例构建签名产物。不能将方法名的点号机械替换成斜杠，虚构 REST 路由。
 - Go 标准库 `encoding/json/v2` 的“v2”与支付宝 API 协议版本无关。
 - 协议在 Operation 定义时显式固定。V3 调用失败、权限不足、超时或验签失败时，不自动回退到 V2，尤其不能跨协议重试支付、退款和转账。
 - 文档暂不可读、SDK 未封装或目录中未检索到，都不能独立证明接口只有 V2。证据不足时标记“待核验”，补充官方资料后再实现。
 
 ## 2. 核验来源与范围
 
-本轮覆盖本项目已实现或明确规划的 16 个常用接口：**13 个选用 V3，3 个保留 V2**。这是项目选型清单，不是支付宝全部接口的穷举。
+本轮覆盖本项目已实现或明确规划的 16 个常用接口：**13 个 V3 REST API，另有 3 个支付页面/唤端接口须按各自官方 V3 文档及通用执行入口接入**。后者不归类为“没有 V3 文档”或“只有 V2”。这是项目选型清单，不是支付宝全部接口的穷举。
 
 主要依据为支付宝官方仓库的固定版本：
 
 - [官方 V3 OpenAPI 描述](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/api/openapi.yaml)：`info.version=2026-09-23`，本次按 `operationId` 核对，包含 746 个操作。
 - [同一版本的官方 V3 API 目录](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/README.md)：用于交叉确认方法与路由。
-- 同一官方仓库的 V2 Request 源码，以及支付宝[页面跳转规范](https://opendocs.alipay.com/common/0i2kxr.md)、[唤端规范](https://opendocs.alipay.com/common/0i2jez.md)：确认 V2 页面/订单串场景。
+- [官方 V3 SDK 的 GenericExecuteApi](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/src/main/java/com/alipay/v3/util/GenericExecuteApi.java)：提供 `pageExecute` 和 `sdkExecute`，不在自动生成的 REST API 列表中。
+- 下表的官方 V3 页面正文及其示例：用于确认接口字段、调用方式、响应产物与签名参数，而非只根据文档 URL 判断协议。
 
-上述提交时间为 2026-11-04，commit 为 `02177d34fce069f6c20d83c13f963150bb45467b`。未命中 V3 目录只是辅助证据；下面保留 V2 的三个接口还具有 V2 官方实现与对应签名产物规范。
+上述 SDK 提交时间为 2026-11-04，commit 为 `02177d34fce069f6c20d83c13f963150bb45467b`。未命中 REST 目录不代表 V3 SDK 不支持；必须同时检查通用执行入口与具体文档。
 
-## 3. 保留 V2 的接口
+## 3. 有官方 V3 文档的页面与唤端接口
 
-| 接口 | 用途 | 采用方式 | 官方依据 |
+| 接口 | 用途 | 官方接入方式 | 官方 V3 文档 |
 | --- | --- | --- | --- |
-| `alipay.trade.page.pay` | 电脑网站支付 | V2 签名 URL / HTML Form；不作为服务端 V3 REST 请求发送 | [V2 Request](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v2/src/main/java/com/alipay/api/request/AlipayTradePagePayRequest.java)、[页面跳转规范](https://opendocs.alipay.com/common/0i2kxr.md) |
-| `alipay.trade.wap.pay` | 手机网站支付 | V2 签名 URL / HTML Form | [V2 Request](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v2/src/main/java/com/alipay/api/request/AlipayTradeWapPayRequest.java)、[接口说明](https://opendocs.alipay.com/open/02ivbs.md?scene=21) |
-| `alipay.trade.app.pay` | App 支付 | V2 签名订单字符串，交给 App 支付 SDK 唤起收银台 | [V2 Request](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v2/src/main/java/com/alipay/api/request/AlipayTradeAppPayRequest.java)、[服务端示例](https://opendocs.alipay.com/common/02kiq5.md) |
+| `alipay.trade.page.pay` | 电脑网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [统一收单下单并支付页面接口](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay) |
+| `alipay.trade.wap.pay` | 手机网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [手机网站支付接口](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay) |
+| `alipay.trade.app.pay` | App 支付 | 按 V3 SDK `GenericExecuteApi.sdkExecute` 的订单字符串构建方式接入 | [App 支付接口](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay) |
 
-这三个接口在本轮官方 V3 描述中没有对应 REST 操作。页面/唤端本身生成签名产物，不通过“新增一个 `/v3/...` 路由”替代。付款后的交易查询、退款、退款查询等仍应采用其已有的 V3 接口，不能因为下单产物是 V2 就将整条交易链固定为 V2。
+`page.pay` 文档更新时间为 2026-09-13，`wap.pay` 为 2026-08-17。本次已读取其 V3 页面正文：二者都明确为页面跳转接口，Java 示例使用 `com.alipay.v3.util.GenericExecuteApi.pageExecute`，响应为 `pageRedirectionData`。POST 返回可在浏览器渲染的表单，GET 返回供打开或重定向的 URL。`app.pay` 的 V3 文档更新于 2026-08-21，明确为签名数据准备接口，通过 `sdkExecute` 生成 `orderStr`。
 
-普通支付异步通知是独立的回调报文及验签契约，不计入上述三个 V2 调用接口，也不因服务端交易 API 迁移到 V3 就自动改变其通知格式。
+这些 V3 文档的页面产物仍展示 `gateway.do`、`method`、`version=1.0`、`biz_content` 和签名参数，应按文档实现；这描述实际签名格式，不能据此宣称没有 V3 文档或 V3 SDK 支持。SDK 应提供独立的页面/订单串构建入口，而非强行套用服务端 REST JSON 执行器。
+
+付款后的交易查询、退款和退款查询采用第 4 节的 V3 REST。普通支付异步通知按自身回调契约验签，不能根据文档目录或交易 API 版本自动改变格式。
+
+### 3.1 “仅 V2”状态的判定
+
+本轮不再将上述三个支付接口列入“仅 V2”清单。只有取得明确的官方证据、确认没有相应 V3 文档和支持路径后，才将其他接口记录为仅 V2；不依据 REST 清单缺失作此判定。
 
 ## 4. 已有 V3、必须选用 V3 的接口
 
