@@ -145,7 +145,9 @@ P0–P4 的已完成项保留为 V2 历史交付记录，不代表 V3 等价实�
 
 ## 9. 优先里程碑：V3 协议与既有接口迁移
 
+- [ ] 按[Credentials 接口方案](credentials-design.md)实施 C1：将 Credentials 作为 NewClient 必选首参，公钥凭证提供 Signer/Verifier，公共选项不再覆盖认证策略；同步 Service、通知和扩展示例并完成公钥回归。
 - [ ] 按[版本清单](api-versions.md)的官方 OpenAPI 固定方法、路由、参数位置、响应模型、鉴权和错误契约。
+- [ ] 实施认证方案 C2，将凭证提供的签名器、验签器与证书身份能力接入 V3 处理器；Client 不泛型化，认证模式与协议保持独立。
 - [ ] 为 Operation 增加具名协议与 HTTP 方法类型、V3 相对路由和 JSON/query 参数模式，保留 V2 专属字段的明确适用范围。
 - [ ] 新增独立 V3 请求签名、响应验签与认证处理，不沿用 V2 的签名原文和 `xxx_response` 解析。
 - [ ] 将 Query、Precreate、Close、Refund、QueryRefund 的默认领域 Operation 全部迁移到已核验的 V3 POST 路由，逐项审查模型与业务语义差异。
@@ -158,6 +160,7 @@ P0–P4 的已完成项保留为 V2 历史交付记录，不代表 V3 等价实�
 
 ## 10. P5：本地证书模式
 
+- [ ] 实施认证方案 C3：完成 CertificateCredentials 和 CertificateProvider，向统一 Client/通知 Handler 提供证书验签策略，不使用可写 AuthMode 切换策略。
 - [ ] 实现应用、支付宝及根证书的装载、基本有效性与用途校验。
 - [ ] 校验应用私钥与应用证书公钥匹配。
 - [ ] 按官方规则计算 `app_cert_sn`、`alipay_root_cert_sn` 和支付宝证书 SN；使用独立预期值验证。
@@ -166,6 +169,8 @@ P0–P4 的已完成项保留为 V2 历史交付记录，不代表 V3 等价实�
 - [ ] 验证过期、格式错误、未知 SN、错误根证书及多证书选择失败行为。
 - [ ] 复用交易与通知用例验证证书模式，不重新实现一套 Service。
 - [ ] 给出更新本地证书、重建实例的操作说明；不启用自动下载器。
+- [ ] 实施认证方案 C4：对实际要求证书的 Operation 在统一 Do 中检查模式与能力，不宣称普通 Client 类型能在编译期区分两种认证模式。
+- [ ] 通过外部测试包验证第三方 Credentials 实现、工厂配置类型及构造/执行边界，补齐公开 API 迁移说明。
 
 验收：同一领域 Service 可使用公钥或证书 Client；证书缺失或不匹配导致明确错误，不能转为无验签调用。证书规则依据[官方常见问题](https://opendocs.alipay.com/common/02kdne.md)。
 

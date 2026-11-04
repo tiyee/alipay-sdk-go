@@ -146,7 +146,7 @@ Service 内的交易状态和退款状态保持官方语义；查询请求处理
 
 ```go
 // core 包：配置构建不进行网络 I/O，因此构造函数不要求 context。
-func NewClient(opts ...ClientOption) (*Client, error)
+func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, error)
 
 // 传输层使用确定的协议类型，不接收无类型业务输出参数。
 type Executor interface {
@@ -333,6 +333,10 @@ RSA2 与请求处理依据[签名规范](https://opendocs.alipay.com/common/057k
 - 验签只是可信来源校验。示例必须继续检查 APPID、收款方、商户订单、金额，完成幂等持久化后才确认；重复通知、乱序与响应失败交给商户业务处理。
 
 ## 8. 密钥、证书与加密
+
+认证重构采用[Credentials 接口方案](credentials-design.md)：`NewClient(credentials auth.Credentials, opts ...ClientOption)` 将凭证作为首个必选参数，公钥和证书实现分别提供 Signer、Verifier、模式与材料校验，公共选项不再覆盖认证策略。Client 保持普通类型，Service 继续依赖非泛型 Executor，泛型保留在请求/响应及编解码流程。
+
+这是待实施的公开 API 调整；当前代码的构造函数尚未迁移。两种模式统一为 `*core.Client`，不宣称具有编译期模式隔离；必须证书的能力在统一执行路径中校验，证书信任、期限、标识、私钥匹配和协议兼容仍按官方契约验证。
 
 | 能力 | 设计 |
 | --- | --- |

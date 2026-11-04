@@ -9,6 +9,7 @@
 | [交易场景说明](trade-scenarios.md) | 预下单、支付通知、查询确认、关单、退款与退款查询的接入顺序与商户校验清单 |
 | [自定义接口扩展](custom-apis.md) | 用户定义请求/响应、枚举、Operation 与独立 Service，复用 SDK 执行能力 |
 | [接口版本选型](api-versions.md) | 13 个 V3 REST API、3 个有 V3 文档的页面/唤端接口，以及各自接入方式 |
+| [Credentials 认证接口方案](credentials-design.md) | Credentials 作为 NewClient 首参，公钥/证书的 Signer、Verifier、能力校验与迁移步骤 |
 
 建议先阅读整体架构，再按开发计划逐项实施。状态以代码、测试和验收证据为准，不能仅凭计划中的勾选宣布接口可用。
 
