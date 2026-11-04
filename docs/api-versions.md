@@ -32,9 +32,13 @@
 | --- | --- | --- | --- |
 | `alipay.trade.page.pay` | 电脑网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [统一收单下单并支付页面接口](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay) |
 | `alipay.trade.wap.pay` | 手机网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [手机网站支付接口](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay) |
-| `alipay.trade.app.pay` | App 支付 | 按 V3 SDK `GenericExecuteApi.sdkExecute` 的订单字符串构建方式接入 | [App 支付接口](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay) |
+| `alipay.trade.app.pay` | App 支付及支付并签约场景 | 按 V3 SDK `GenericExecuteApi.sdkExecute` 的订单字符串构建方式接入 | [App 支付](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay)、[商家扣款场景](https://opendocs.alipay.com/open-v3/0jf33m) |
 
 `page.pay` 文档更新时间为 2026-09-13，`wap.pay` 为 2026-08-17。本次已读取其 V3 页面正文：二者都明确为页面跳转接口，Java 示例使用 `com.alipay.v3.util.GenericExecuteApi.pageExecute`，响应为 `pageRedirectionData`。POST 返回可在浏览器渲染的表单，GET 返回供打开或重定向的 URL。`app.pay` 的 V3 文档更新于 2026-08-21，明确为签名数据准备接口，通过 `sdkExecute` 生成 `orderStr`。
+
+同日核验的 [0jf33m](https://opendocs.alipay.com/open-v3/0jf33m) 是 `alipay.trade.app.pay` 在商家扣款产品中的 V3 场景文档，更新时间同为 2026-08-21。正文明确用于 App 支付并签约，Java 示例使用 V3 SDK `GenericExecuteApi.sdkExecute`；新增的是同一接口的场景依据，因此接口总数仍为 16，不重复计数。
+
+该场景包含 `agreement_sign_params` 以及嵌套的 `access_params`、`period_rule_params` 等签约数据。实现时采用独立具名 struct、具名枚举与明确的条件校验，不照搬普通 App 支付场景的必填关系，也不以动态字典替代模型。签约能力按场景排入实现范围，不将存在官方文档视为代码已经支持。
 
 这些 V3 文档的页面产物仍展示 `gateway.do`、`method`、`version=1.0`、`biz_content` 和签名参数，应按文档实现；这描述实际签名格式，不能据此宣称没有 V3 文档或 V3 SDK 支持。SDK 应提供独立的页面/订单串构建入口，而非强行套用服务端 REST JSON 执行器。
 

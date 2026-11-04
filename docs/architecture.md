@@ -317,6 +317,8 @@ RSA2 与请求处理依据[签名规范](https://opendocs.alipay.com/common/057k
 
 接入依据为官方 V3 [page.pay](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay)、[wap.pay](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay)、[app.pay](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay) 及 V3 SDK `GenericExecuteApi`。页面接口明确返回 `pageRedirectionData`，App 返回 `orderStr`，不因生成器 REST 清单中缺少它们就标记仅 V2。
 
+同一 `app.pay` 的[商家扣款 V3 场景](https://opendocs.alipay.com/open-v3/0jf33m)还包含支付并签约参数。接口名复用不表示模型和必填关系完全一致：按场景核验字段，用具名嵌套 struct 与枚举建模签约参数，避免将某一产品场景的限制套用到全部 App 支付。
+
 调用方式采用具名枚举与相应产物类型区分，页面构建不伪造 `/v3/...` REST 路由。签名产物按文档保留 `method`、`version=1.0`、`biz_content` 等实际格式。HTML Form 使用安全模板转义，页面返回地址不作为支付完成的可信证据。
 
 ### 7.2 支付异步通知
