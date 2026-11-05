@@ -1,3 +1,3 @@
-module github.com/tiyee/go-alipay
+module github.com/tiyee/alipay-sdk-go
 
-go 1.27.0
+go 1.24.0

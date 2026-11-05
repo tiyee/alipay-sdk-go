@@ -1,5 +1,7 @@
-// Package option 提供构建 core.Client 的配置选项。
-// 本包依赖 core 与签名实现；core 不反向导入本包。
+// Package option 提供构建 core.Client 的公共配置选项。
+// 认证凭证是 NewClient 的第一个必选参数（core/auth.Credentials），
+// 本包选项不设置认证模式、签名器或验签器；
+// 公共选项无法覆盖首参确定的认证策略。
 package option
 
 import (
@@ -8,9 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/tiyee/go-alipay/core"
-	"github.com/tiyee/go-alipay/core/auth/signers"
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
+	"github.com/tiyee/alipay-sdk-go/core"
 )
 
 // WithAppID 设置应用 APPID。
@@ -21,15 +21,15 @@ func WithAppID(appID string) core.ClientOption {
 	}
 }
 
-// WithEnvironment 按环境设置官方网关地址。
+// WithEnvironment 按环境成对设置官方 REST 网关与产物提交网关。
 // 沙箱与生产互不回退；未在首次配置中选择的路径不会自动切换。
 func WithEnvironment(env core.Environment) core.ClientOption {
 	return func(s *core.Settings) error {
 		switch env {
 		case core.EnvironmentProduction:
-			return WithGateway(core.GatewayProduction)(s)
+			return withOfficialGateways(core.GatewayProduction, core.ArtifactGatewayProduction)(s)
 		case core.EnvironmentSandbox:
-			return WithGateway(core.GatewaySandbox)(s)
+			return withOfficialGateways(core.GatewaySandbox, core.ArtifactGatewaySandbox)(s)
 		default:
 			return &core.ConfigError{Field: "environment",
 				Reason: "unknown environment: " + string(env)}
@@ -37,7 +37,18 @@ func WithEnvironment(env core.Environment) core.ClientOption {
 	}
 }
 
-// WithGateway 显式设置网关地址，用于测试或受控代理。
+// withOfficialGateways 按官方地址成对设置 REST 网关与产物网关。
+func withOfficialGateways(gateway, artifactGateway string) core.ClientOption {
+	return func(s *core.Settings) error {
+		if err := WithGateway(gateway)(s); err != nil {
+			return err
+		}
+		return WithArtifactGateway(artifactGateway)(s)
+	}
+}
+
+// WithGateway 显式设置 V3 REST 网关基地址，用于测试或受控代理；
+// 不影响产物提交网关。
 func WithGateway(rawURL string) core.ClientOption {
 	return func(s *core.Settings) error {
 		parsed, err := url.Parse(rawURL)
@@ -49,52 +60,15 @@ func WithGateway(rawURL string) core.ClientOption {
 	}
 }
 
-// WithSigner 注入已构建的签名器。
-func WithSigner(signer core.Signer) core.ClientOption {
+// WithArtifactGateway 显式设置页面跳转与唤端产物的提交网关
+// （gateway.do），用于测试或受控代理；不影响 REST 网关。
+func WithArtifactGateway(rawURL string) core.ClientOption {
 	return func(s *core.Settings) error {
-		if signer == nil {
-			return &core.ConfigError{Field: "signer", Reason: "nil signer"}
+		parsed, err := url.Parse(rawURL)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return &core.ConfigError{Field: "artifact_gateway", Reason: "invalid artifact gateway url"}
 		}
-		s.Signer = signer
-		return nil
-	}
-}
-
-// WithVerifier 注入已构建的验签器，并将认证模式设置为公钥模式；
-// 证书模式的验签器随 P5 的证书选项提供。
-func WithVerifier(verifier core.Verifier) core.ClientOption {
-	return func(s *core.Settings) error {
-		if verifier == nil {
-			return &core.ConfigError{Field: "verifier", Reason: "nil verifier"}
-		}
-		s.Verifier = verifier
-		s.AuthMode = core.AuthModePublicKey
-		return nil
-	}
-}
-
-// WithPrivateKey 使用 PKCS#8 PEM 编码的应用私钥构建 RSA2 签名器。
-func WithPrivateKey(privateKeyPEM string) core.ClientOption {
-	return func(s *core.Settings) error {
-		signer, err := signers.NewRSA2(privateKeyPEM)
-		if err != nil {
-			return err
-		}
-		s.Signer = signer
-		return nil
-	}
-}
-
-// WithAlipayPublicKey 使用 PEM 编码的支付宝公钥构建 RSA2 验签器，
-// 并将认证模式设置为公钥模式。
-func WithAlipayPublicKey(alipayPublicKeyPEM string) core.ClientOption {
-	return func(s *core.Settings) error {
-		verifier, err := verifiers.NewRSA2(alipayPublicKeyPEM)
-		if err != nil {
-			return err
-		}
-		s.Verifier = verifier
-		s.AuthMode = core.AuthModePublicKey
+		s.ArtifactGateway = parsed
 		return nil
 	}
 }
@@ -138,7 +112,8 @@ func WithMaxResponseBytes(n int64) core.ClientOption {
 func WithLogger(logger *slog.Logger) core.ClientOption {
 	return func(s *core.Settings) error {
 		if logger == nil {
-			return &core.ConfigError{Field: "logger", Reason: "nil logger; omit the option for silence"}
+			return &core.ConfigError{Field: "logger",
+				Reason: "nil logger; omit the option for silence"}
 		}
 		s.Logger = logger
 		return nil
@@ -150,7 +125,8 @@ func WithLogger(logger *slog.Logger) core.ClientOption {
 func WithLogHandler(handler slog.Handler) core.ClientOption {
 	return func(s *core.Settings) error {
 		if handler == nil {
-			return &core.ConfigError{Field: "log_handler", Reason: "nil handler; omit the option for silence"}
+			return &core.ConfigError{Field: "log_handler",
+				Reason: "nil handler; omit the option for silence"}
 		}
 		s.Logger = slog.New(handler)
 		return nil

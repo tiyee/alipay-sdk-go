@@ -1,12 +1,18 @@
 // Package notify 实现支付宝异步通知的解析、验签与类型化映射。
-// 处理链路：限制请求体大小 → 解析一次表单 → 按通知策略构建待验签串 →
-// 使用可信验签器校验 → 形成可信参数 → 映射领域通知模型。
+// Handler 以 Credentials 作为构造首参，绑定构造期验证所需的认证快照：
+// 限制请求体大小 → 解析一次表单 → 按通知策略构建待验签串 →
+// 使用模式对应的验签器校验 → 形成可信参数 → 映射领域通知模型。
 // 本包不依赖业务领域包，不包含商户订单、幂等或状态机逻辑；
 // 领域通知模型由 services/<domain> 定义并通过 Decoder 接入。
 //
 // 首期仅实现普通支付通知（交易状态同步）的验签策略；
 // 生活号等通知对 sign_type 的剔除规则不同，属于未支持策略，
 // 本包不会自动猜测通知类型。
+//
+// 通知策略与认证模式分开：普通支付通知契约不携带证书标识，
+// 公钥模式使用支付宝公钥验签；证书模式按官方 rsaCertCheckV1 行为
+// 使用本地配置的支付宝证书公钥——本地配置多张证书时无法唯一确定
+// 可信材料，验签明确失败，不盲试未确认密钥。
 package notify
 
 import (
@@ -16,12 +22,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 
-	"github.com/tiyee/go-alipay/core"
-	"github.com/tiyee/go-alipay/core/auth"
-	"github.com/tiyee/go-alipay/internal/protocol"
+	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/internal/protocol"
 )
 
 // Policy 标识异步通知的验签策略。不同通知类型构建待验签串时的
@@ -80,7 +88,7 @@ type DecoderFunc[T any] func(values url.Values) (T, error)
 // Decode 实现 Decoder。
 func (f DecoderFunc[T]) Decode(values url.Values) (T, error) { return f(values) }
 
-// Notification 是通过验签的异步通知结果。仅当 Parse 返回 error 为 nil
+// Notification 是通过验签的异步通知结果。仅当解析方法返回 error 为 nil
 // 时 Data 非 nil；解析、验签或映射失败不输出可信业务数据。
 type Notification[T any] struct {
 	// Data 是类型化领域通知模型。
@@ -119,8 +127,8 @@ func newParseSettings(opts ...ParseOption) (parseSettings, error) {
 	return settings, nil
 }
 
-// WithMaxFormBytes 设置通知表单大小上限，仅影响 ParseRequest 的请求体
-// 读取；必须为正数。
+// WithMaxFormBytes 设置通知表单大小上限，仅影响 ParseRequest
+// 的请求体读取；必须为正数。
 func WithMaxFormBytes(n int64) ParseOption {
 	return func(s *parseSettings) error {
 		if n <= 0 {
@@ -145,33 +153,65 @@ func WithLogger(logger *slog.Logger) ParseOption {
 	}
 }
 
-// Parse 基于已解码一次的通知表单参数完成验签与领域映射。
-// values 应来自对原始请求体的一次解析（例如框架已解码的表单）；
-// 本函数不会再次解码，也不修改调用方传入的 values。
-// 重复参数属于歧义输入，一律拒绝，不静默选择首项或末项。
-//
-// 验证顺序：策略与依赖检查 → 重复参数 → charset → notify_type →
-// sign_type → sign 存在性 → 验签 → 领域映射。任何一步失败都不输出
-// 可信业务数据；验签失败返回 *core.SignatureError。
-//
-// 空值参数参与待验签串（与请求签名不同，官方验签文档未要求通知剔除空值）；
-// charset 仅支持 utf-8；sign_type 与验签器算法不一致时拒绝，
-// 缺失时按验签器算法（RSA2）验签。ctx 用于日志传递调用上下文。
-func Parse[T any](ctx context.Context, policy Policy, verifier auth.Verifier,
-	decoder Decoder[T], values url.Values, opts ...ParseOption) (Notification[T], error) {
-	if ctx == nil {
-		return Notification[T]{}, &core.ValidationError{Field: "ctx", Reason: "context must not be nil"}
+// Handler 是以 Credentials 驱动的异步通知验证器：构造时绑定
+// 通知策略、认证快照（模式对应的验签器）与解析设置，
+// 各 Parse 方法以类型化 Decoder 完成领域映射。
+// Handler 不依赖 Client 的私有 HTTP 执行逻辑，可并发复用。
+type Handler struct {
+	policy   Policy
+	verifier auth.Verifier
+	settings parseSettings
+}
+
+// NewHandler 基于凭证构建通知验证器。凭证为 nil 或校验失败、
+// 策略未实现、验签器缺失时返回错误；构造不访问网络。
+func NewHandler(credentials auth.Credentials, policy Policy, opts ...ParseOption) (*Handler, error) {
+	if credentials == nil || isNilCredentials(credentials) {
+		return nil, &core.ValidationError{Field: "credentials", Reason: "credentials is required"}
+	}
+	if err := credentials.Validate(); err != nil {
+		return nil, &core.ValidationError{Field: "credentials",
+			Reason: "credentials validation failed", Err: err}
+	}
+	if !policy.valid() {
+		return nil, &core.ValidationError{Field: "policy",
+			Reason: "unknown notify policy; only the ordinary payment notification rule is supported"}
+	}
+	verifier := credentials.Verifier()
+	if verifier == nil || isNilCredentials(verifier) {
+		return nil, &core.ValidationError{Field: "verifier",
+			Reason: "credentials returned a nil verifier"}
 	}
 	settings, err := newParseSettings(opts...)
 	if err != nil {
-		return Notification[T]{}, err
+		return nil, err
 	}
-	data, params, err := parse(ctx, policy, verifier, decoder, values, settings)
+	return &Handler{policy: policy, verifier: verifier, settings: settings}, nil
+}
+
+// Parse 基于已解码一次的通知表单参数完成验签与领域映射。
+// values 应来自对原始请求体的一次解析（例如框架已解码的表单）；
+// 本方法不会再次解码，也不修改调用方传入的 values。
+// 重复参数属于歧义输入，一律拒绝，不静默选择首项或末项。
+//
+// 验证顺序：重复参数 → charset → notify_type → sign_type →
+// sign 存在性 → 验签 → 领域映射。任何一步失败都不输出
+// 可信业务数据；验签失败返回 *core.SignatureError。
+//
+// 空值参数参与待验签串（与请求签名不同，官方验签文档未要求通知剔除空值）；
+// charset 仅支持 utf-8；sign_type 与 RSA2 不一致时拒绝，
+// 缺失时按 RSA2 验签。ctx 用于验签器与日志传递调用上下文。
+func Parse[T any](ctx context.Context, h *Handler, values url.Values,
+	decoder Decoder[T]) (Notification[T], error) {
+	if ctx == nil {
+		return Notification[T]{}, &core.ValidationError{Field: "ctx", Reason: "context must not be nil"}
+	}
+	data, params, err := parse(ctx, h, values, decoder)
 	if err != nil {
-		logFailure(ctx, settings.logger, err)
+		logFailure(ctx, h.settings.logger, err)
 		return Notification[T]{}, err
 	}
-	settings.logger.LogAttrs(ctx, slog.LevelDebug, "alipay notify verified",
+	h.settings.logger.LogAttrs(ctx, slog.LevelDebug, "alipay notify verified",
 		slog.String("sdk", "alipay"), slog.String("operation", "notify"))
 	return Notification[T]{Data: &data, Params: params}, nil
 }
@@ -180,27 +220,23 @@ func Parse[T any](ctx context.Context, policy Policy, verifier auth.Verifier,
 // 有界读取请求体并解码一次表单，然后执行与 Parse 相同的验签与映射流程。
 // 调用方须保证请求体未被框架消费；框架已解析表单时应改用 Parse，
 // 避免二次 URL 解码。通知参数只从请求体读取，不合并 URL 查询参数。
-func ParseRequest[T any](ctx context.Context, r *http.Request, policy Policy,
-	verifier auth.Verifier, decoder Decoder[T], opts ...ParseOption) (Notification[T], error) {
+func ParseRequest[T any](ctx context.Context, h *Handler, r *http.Request,
+	decoder Decoder[T]) (Notification[T], error) {
 	if ctx == nil {
 		return Notification[T]{}, &core.ValidationError{Field: "ctx", Reason: "context must not be nil"}
 	}
 	if r == nil {
 		return Notification[T]{}, &core.ValidationError{Field: "request", Reason: "request is required"}
 	}
-	settings, err := newParseSettings(opts...)
-	if err != nil {
-		return Notification[T]{}, err
-	}
 	if r.Method != http.MethodPost {
 		return Notification[T]{}, &core.ProtocolError{Op: "parse",
 			Reason: "notify must be sent with POST"}
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, settings.maxFormBytes+1))
+	body, err := io.ReadAll(io.LimitReader(r.Body, h.settings.maxFormBytes+1))
 	if err != nil {
 		return Notification[T]{}, &core.TransportError{Op: "read", Err: err}
 	}
-	if int64(len(body)) > settings.maxFormBytes {
+	if int64(len(body)) > h.settings.maxFormBytes {
 		return Notification[T]{}, &core.ProtocolError{Op: "parse",
 			Reason: "notify form exceeds size limit"}
 	}
@@ -209,33 +245,26 @@ func ParseRequest[T any](ctx context.Context, r *http.Request, policy Policy,
 		return Notification[T]{}, &core.ProtocolError{Op: "parse",
 			Reason: "parse notify form", Err: err}
 	}
-	data, params, err := parse(ctx, policy, verifier, decoder, form, settings)
+	data, params, err := parse(ctx, h, form, decoder)
 	if err != nil {
-		logFailure(ctx, settings.logger, err)
+		logFailure(ctx, h.settings.logger, err)
 		return Notification[T]{}, err
 	}
-	settings.logger.LogAttrs(ctx, slog.LevelDebug, "alipay notify verified",
+	h.settings.logger.LogAttrs(ctx, slog.LevelDebug, "alipay notify verified",
 		slog.String("sdk", "alipay"), slog.String("operation", "notify"))
 	return Notification[T]{Data: &data, Params: params}, nil
 }
 
 // parse 执行验证与映射的主体流程，返回类型化数据与剔除签名参数后的
 // 表单副本。失败路径不产出任何可信数据。
-func parse[T any](ctx context.Context, policy Policy, verifier auth.Verifier,
-	decoder Decoder[T], values url.Values, settings parseSettings) (T, url.Values, error) {
+func parse[T any](ctx context.Context, h *Handler, values url.Values,
+	decoder Decoder[T]) (T, url.Values, error) {
 	var zero T
-	if !policy.valid() {
-		return zero, nil, &core.ValidationError{Field: "policy",
-			Reason: "unknown notify policy; only the ordinary payment notification rule is supported"}
-	}
-	if verifier == nil {
-		return zero, nil, &core.ValidationError{Field: "verifier", Reason: "verifier is required"}
-	}
 	if decoder == nil {
 		return zero, nil, &core.ValidationError{Field: "decoder", Reason: "decoder is required"}
 	}
 	// Clone 返回深拷贝：后续读取与返回的 Params 不受调用方后续修改影响。
-	form := values.Clone()
+	form := compat.CloneValues(values)
 	var duplicated []string
 	for key, vs := range form {
 		if len(vs) > 1 {
@@ -254,20 +283,29 @@ func parse[T any](ctx context.Context, policy Policy, verifier auth.Verifier,
 	if notifyType := form.Get(protocol.ParamNotifyType); notifyType == "" {
 		return zero, nil, &core.ValidationError{Field: "notify_type",
 			Reason: "notify_type is required"}
-	} else if notifyType != policy.notifyType() {
+	} else if notifyType != h.policy.notifyType() {
 		return zero, nil, &core.ValidationError{Field: "notify_type",
 			Reason: "notify type does not match the selected policy"}
 	}
-	if signType := form.Get(protocol.ParamSignType); signType != "" && signType != verifier.Algorithm() {
+	if signType := form.Get(protocol.ParamSignType); signType != "" && signType != auth.SignatureAlgorithmRSA2.String() {
 		return zero, nil, &core.SignatureError{Stage: "notify",
-			Reason: "unsupported sign type; only " + verifier.Algorithm() + " is supported"}
+			Reason: "unsupported sign type; only " + auth.SignatureAlgorithmRSA2.String() + " is supported"}
 	}
 	sign := form.Get(protocol.ParamSign)
 	if sign == "" {
 		return zero, nil, &core.SignatureError{Stage: "notify", Reason: "missing signature"}
 	}
-	content := protocol.BuildNotifySignContent(form, policy.excludedParams()...)
-	if err := verifier.Verify([]byte(content), sign); err != nil {
+	content := protocol.BuildNotifySignContent(form, h.policy.excludedParams()...)
+	input := auth.VerificationInput{
+		Payload: []byte(content),
+		Signature: auth.Signature{
+			Algorithm: auth.SignatureAlgorithmRSA2,
+			Value:     sign,
+		},
+		// 普通支付通知契约不携带证书标识，KeyID 为空；
+		// 证书模式由认证层按本地可信材料语义处理。
+	}
+	if err := h.verifier.Verify(ctx, input); err != nil {
 		return zero, nil, &core.SignatureError{Stage: "notify",
 			Reason: "verify notify signature", Err: err}
 	}
@@ -279,6 +317,21 @@ func parse[T any](ctx context.Context, policy Policy, verifier auth.Verifier,
 			Reason: "decode notify params", Err: err}
 	}
 	return data, form, nil
+}
+
+// isNilCredentials 报告接口值是否为 nil 或持有 nil 指针（typed nil）。
+func isNilCredentials(value any) bool {
+	if value == nil {
+		return true
+	}
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func,
+		reflect.Chan, reflect.Interface, reflect.UnsafePointer:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
 // logFailure 按统一字段约定记录通知处理失败。

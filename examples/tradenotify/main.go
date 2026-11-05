@@ -7,8 +7,9 @@
 // 配置全部来自环境变量，示例不包含任何真实凭证：
 //
 //	ALIPAY_APP_ID          本应用 APPID（必填）
+//	ALIPAY_APP_PRIVATE_KEY 应用私钥 PKCS#8 PEM（必填，构成 Credentials）
 //	ALIPAY_PUBLIC_KEY      支付宝公钥 PEM 或单行 base64（必填）
-//	ALIPAY_SELLER_ID       卖家支付宝用户号，多收款账户时必校验
+//	ALIPAY_SELLER_ID       卖家支付宝用户号（必填）
 //	ALIPAY_LISTEN_ADDR     监听地址，默认 :8080
 //
 // 本示例不处理订单持久化；memoryOrders 仅演示幂等判断的接入位置，
@@ -22,32 +23,55 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
-	"github.com/tiyee/go-alipay/core/notify"
-	"github.com/tiyee/go-alipay/services/trade"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/core/notify"
+	"github.com/tiyee/alipay-sdk-go/services/trade"
+	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
 func main() {
 	appID := os.Getenv("ALIPAY_APP_ID")
+	appPrivateKey := os.Getenv("ALIPAY_APP_PRIVATE_KEY")
 	publicKey := os.Getenv("ALIPAY_PUBLIC_KEY")
 	sellerID := os.Getenv("ALIPAY_SELLER_ID")
 	addr := os.Getenv("ALIPAY_LISTEN_ADDR")
 	if addr == "" {
 		addr = ":8080"
 	}
-	if appID == "" || publicKey == "" {
-		slog.Error("ALIPAY_APP_ID and ALIPAY_PUBLIC_KEY are required")
+	if appID == "" || appPrivateKey == "" || publicKey == "" || sellerID == "" {
+		slog.Error("ALIPAY_APP_ID, ALIPAY_APP_PRIVATE_KEY, ALIPAY_PUBLIC_KEY and ALIPAY_SELLER_ID are required")
 		os.Exit(2)
 	}
-	verifier, err := verifiers.NewRSA2(publicKey)
+	alipayPublicKey, err := utils.ParsePublicKeyPKIX(utils.TrimKeyText(publicKey))
 	if err != nil {
 		slog.Error("invalid ALIPAY_PUBLIC_KEY")
+		os.Exit(2)
+	}
+	appSigner, err := utils.ParsePrivateKeyPKCS8(utils.TrimKeyText(appPrivateKey))
+	if err != nil {
+		slog.Error("invalid ALIPAY_APP_PRIVATE_KEY")
+		os.Exit(2)
+	}
+	// 通知验签由 Credentials 驱动：公钥模式使用支付宝公钥。
+	// 证书模式改为 auth.NewCertificateCredentials(...)，Handler 流程不变。
+	credentials, err := auth.NewPublicKeyCredentials(auth.PublicKeyConfig{
+		AppSigner:       appSigner,
+		AlipayPublicKey: alipayPublicKey,
+	})
+	if err != nil {
+		slog.Error("build notify credentials")
+		os.Exit(2)
+	}
+	notifyVerifier, err := notify.NewHandler(credentials, notify.PolicyTradeStatusSync,
+		notify.WithLogger(slog.New(slog.NewJSONHandler(os.Stdout, nil))))
+	if err != nil {
+		slog.Error("build notify handler")
 		os.Exit(2)
 	}
 
 	orders := newMemoryOrders()
 	handler := &notifyHandler{
-		verifier:  verifier,
+		verifier:  notifyVerifier,
 		appID:     appID,
 		sellerID:  sellerID,
 		orders:    orders,
@@ -69,7 +93,7 @@ func main() {
 }
 
 type notifyHandler struct {
-	verifier  *verifiers.RSA2
+	verifier  *notify.Handler
 	appID     string
 	sellerID  string
 	orders    *memoryOrders
@@ -81,9 +105,7 @@ func (h *notifyHandler) serveNotify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	// ParseRequest 完成有界读取、单次解码、验签与领域映射；
 	// 日志注入复用 slog 契约，默认输出仅包含分类字段。
-	notification, err := notify.ParseRequest(ctx, r,
-		notify.PolicyTradeStatusSync, h.verifier, h.notifySvc,
-		notify.WithLogger(h.logger))
+	notification, err := notify.ParseRequest(ctx, h.verifier, r, h.notifySvc)
 	if err != nil {
 		// 未知来源的请求：应答 fail，支付宝会按策略重发。
 		w.WriteHeader(http.StatusOK)
@@ -97,7 +119,7 @@ func (h *notifyHandler) serveNotify(w http.ResponseWriter, r *http.Request) {
 	case data.AppID != h.appID:
 		h.reject(w, "unknown app_id")
 		return
-	case h.sellerID != "" && (data.SellerID == nil || *data.SellerID != h.sellerID):
+	case data.SellerID == nil || *data.SellerID != h.sellerID:
 		// 多收款账户的商户必须校验收款方；单账户商户也应核对。
 		h.reject(w, "unknown seller")
 		return
@@ -109,18 +131,8 @@ func (h *notifyHandler) serveNotify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// —— 幂等接入位置：同一通知（NotifyID 不变）重发时只处理一次 ——
-	if !h.orders.markProcessed(data.NotifyID) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("success"))
-		return
-	}
-
-	// 只有 TRADE_SUCCESS / TRADE_FINISHED 表示买家付款成功；
-	// 其他状态（TRADE_CLOSED、未知新状态）按业务语义另行处理。
-	if data.Paid() {
-		h.orders.markPaid(data.OutTradeNo, data.TradeNo)
-	}
+	// 实际存储应在同一事务内完成去重和订单更新。
+	h.orders.apply(data)
 	// 处理完成后原样应答 success（小写、无空白与 HTML），
 	// 否则支付宝会按 4m、10m、10m、1h、2h、6h、15h 重发。
 	w.WriteHeader(http.StatusOK)
@@ -162,18 +174,14 @@ func (m *memoryOrders) amount(outTradeNo string) string {
 	return m.amounts[outTradeNo]
 }
 
-func (m *memoryOrders) markProcessed(notifyID string) bool {
+func (m *memoryOrders) apply(n *trade.Notification) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.processed[notifyID] {
-		return false
+	if m.processed[n.NotifyID] {
+		return
 	}
-	m.processed[notifyID] = true
-	return true
-}
-
-func (m *memoryOrders) markPaid(outTradeNo, tradeNo string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.paidOrders[outTradeNo] = tradeNo
+	if n.Paid() {
+		m.paidOrders[n.OutTradeNo] = n.TradeNo
+	}
+	m.processed[n.NotifyID] = true
 }

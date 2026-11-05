@@ -1,5 +1,6 @@
-// Package protocol 实现支付宝传统网关 OpenAPI 的参数规范化
-// 与原始响应节点提取。实现不依赖 Client，由 core 包调用。
+// Package protocol 实现页面/唤端产物与异步通知共用的参数规范化，
+// 以及 V3 协议的签名串、验签串与错误解析。实现不依赖 Client，
+// 由 core 包调用。
 package protocol
 
 import (
@@ -25,28 +26,42 @@ const (
 	// ParamNotifyType 是异步通知的 notify_type 参数名。
 	ParamNotifyType = "notify_type"
 
-	FormatJSON   = "JSON"
-	CharsetUTF8  = "utf-8"
-	ErrorKeyName = "error_response"
+	// ParamAppCertSN 是证书模式请求公共参数 app_cert_sn（应用公钥证书 SN）。
+	// 网关依据该参数区分公钥模式与证书模式，
+	// 依据 https://opendocs.alipay.com/common/02kdne.md。
+	ParamAppCertSN = "app_cert_sn"
+	// ParamAlipayRootCertSN 是证书模式请求公共参数
+	// alipay_root_cert_sn（支付宝根证书 SN）。
+	ParamAlipayRootCertSN = "alipay_root_cert_sn"
+
+	CharsetUTF8 = "utf-8"
 
 	// TimestampLayout 是公共参数 timestamp 的格式。
 	TimestampLayout = "2006-01-02 15:04:05"
+
+	// 页面/唤端产物的公共参数固定值，依据官方 GenericExecuteApi
+	// 实现与页面跳转说明（https://opendocs.alipay.com/common/0i2kxr.md），
+	// 与网关请求的取值大小写不同，产物保持官方原样。
+	FormatJSONArtifact  = "json"
+	CharsetUTF8Artifact = "UTF-8"
 )
 
 // protectedParams 是调用方业务参数不得覆盖的公共参数集合。
 // 覆盖尝试会被拒绝，而不是静默合并。
 var protectedParams = map[string]struct{}{
-	ParamAppID:        {},
-	ParamMethod:       {},
-	ParamFormat:       {},
-	ParamCharset:      {},
-	ParamSignType:     {},
-	ParamSign:         {},
-	ParamTimestamp:    {},
-	ParamVersion:      {},
-	ParamBizContent:   {},
-	ParamNotifyURL:    {},
-	ParamAppAuthToken: {},
+	ParamAppID:            {},
+	ParamMethod:           {},
+	ParamFormat:           {},
+	ParamCharset:          {},
+	ParamSignType:         {},
+	ParamSign:             {},
+	ParamTimestamp:        {},
+	ParamVersion:          {},
+	ParamBizContent:       {},
+	ParamNotifyURL:        {},
+	ParamAppAuthToken:     {},
+	ParamAppCertSN:        {},
+	ParamAlipayRootCertSN: {},
 }
 
 // IsProtectedParam 报告参数名是否属于受保护的公共参数。

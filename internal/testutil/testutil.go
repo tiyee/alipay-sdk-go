@@ -8,14 +8,17 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"io"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/tiyee/go-alipay/core/auth/signers"
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
-	"github.com/tiyee/go-alipay/utils"
+	"github.com/tiyee/alipay-sdk-go/core/auth/signers"
+	"github.com/tiyee/alipay-sdk-go/core/auth/verifiers"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
 // 专用虚构测试材料。app 私钥模拟商户，alipay 私钥模拟支付宝网关，
@@ -114,9 +117,30 @@ const KnownAnswerSignContent = "app_id=2021000000000001&method=alipay.trade.quer
 // 用于交叉验证本仓库签名实现。
 const KnownAnswerSignature = "RTibFKBCo/OpbcsjlvxGmvqhV6hkvUsfzIKuUw17mXrAC8siGeo0mKpqTQOFWV48B4OjR63alMwlWGLL6BGUgV+HXmyXT930MdfdNfrMac/wRCMqNWVBB2a0yJNwIo7tNNIccdUZqJsiwr5pAaTBueHqc0isyKltJj/YAPyHSxoSjdDa+rYRmSLweuaew1CTy2uC34H5lWVUo7s2yJN/xI1wisD57rRLgw5vQoXOUAM8Jb3hz+YhfWZCJ+DwfMKeLMt7MqKeGuKKlD/uYU6S44OVD4kQP0saIKrcMjNXa9CinVNaA3ITsNOzkkn31mgbrGdMCT2UIHgc4SnYJSnTnw=="
 
+// failOrFail 统一处理测试辅助失败：tb 为 nil（Example 等无测试上下文
+// 场景）时直接 panic，否则走 t.Fatalf。
+func failOrFail(tb testing.TB, msg string, err error) {
+	if err == nil {
+		return
+	}
+	if tb == nil {
+		panic(msg + ": " + err.Error())
+	}
+	tb.Helper()
+	tb.Fatalf("%s: %v", msg, err)
+}
+
+// NewAppCryptoSigner 返回解析后的测试应用私钥（crypto.Signer）。
+// tb 允许为 nil（Example 函数等无测试上下文场景）。
+func NewAppCryptoSigner(tb testing.TB) *rsa.PrivateKey {
+	key, err := utils.ParsePrivateKeyPKCS8(utils.TrimKeyText(AppPrivateKeyPEM))
+	failOrFail(tb, "parse app private key", err)
+	return key
+}
+
 // NewAppSigner 返回使用测试应用私钥的签名器。
 func NewAppSigner(tb testing.TB) *signers.RSA2 {
-	signer, err := signers.NewRSA2(AppPrivateKeyPEM)
+	signer, err := signers.NewRSA2(NewAppCryptoSigner(tb))
 	if err != nil {
 		tb.Fatalf("build app signer: %v", err)
 	}
@@ -125,16 +149,28 @@ func NewAppSigner(tb testing.TB) *signers.RSA2 {
 
 // NewAlipayVerifier 返回使用测试支付宝公钥的验签器。
 func NewAlipayVerifier(tb testing.TB) *verifiers.RSA2 {
-	verifier, err := verifiers.NewRSA2(AlipayPublicKeyPEM)
+	verifier, err := verifiers.NewRSA2FromPEM(AlipayPublicKeyPEM)
 	if err != nil {
 		tb.Fatalf("build alipay verifier: %v", err)
 	}
 	return verifier
 }
 
+// NewAlipayCryptoSigner 返回解析后的测试网关私钥（crypto.Signer），
+// 模拟支付宝网关持有的私钥。
+func NewAlipayCryptoSigner(tb testing.TB) *rsa.PrivateKey {
+	key, err := utils.ParsePrivateKeyPKCS8(utils.TrimKeyText(AlipayPrivateKeyPEM))
+	failOrFail(tb, "parse alipay private key", err)
+	return key
+}
+
 // SignWithAlipayKey 使用模拟网关私钥对待验签数据生成 base64 签名。
 func SignWithAlipayKey(data []byte) (string, error) {
-	signer, err := signers.NewRSA2(AlipayPrivateKeyPEM)
+	key, err := utils.ParsePrivateKeyPKCS8(utils.TrimKeyText(AlipayPrivateKeyPEM))
+	if err != nil {
+		return "", err
+	}
+	signer, err := signers.NewRSA2(key)
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +222,7 @@ func SignNotify(tb testing.TB, form url.Values) url.Values {
 	if err != nil {
 		tb.Fatalf("sign notify form: %v", err)
 	}
-	out := form.Clone()
+	out := compat.CloneValues(form)
 	out.Set("sign_type", "RSA2")
 	out.Set("sign", sign)
 	return out
@@ -204,4 +240,113 @@ func VerifyWithAppKey(data []byte, sign string) error {
 	}
 	digest := sha256.Sum256(data)
 	return rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, digest[:], signature)
+}
+
+// SignWithAppKey 使用模拟商户私钥对待签名数据生成 base64 签名。
+func SignWithAppKey(data []byte) (string, error) {
+	key, err := utils.ParsePrivateKeyPKCS8(utils.TrimKeyText(AppPrivateKeyPEM))
+	if err != nil {
+		return "", err
+	}
+	signer, err := signers.NewRSA2(key)
+	if err != nil {
+		return "", err
+	}
+	return signer.Sign(data)
+}
+
+// V3ResponseHeaders 构造带 V3 响应签名头的响应头副本：
+// 验签原文为 timestamp、nonce 与 body 三行（每行以 \n 结尾），
+// 由模拟网关私钥签名。certSN 非空时追加 alipay-sn 头（证书模式）。
+func V3ResponseHeaders(tb testing.TB, body []byte, timestamp, nonce, certSN string) http.Header {
+	tb.Helper()
+	content := timestamp + "\n" + nonce + "\n" + string(body) + "\n"
+	sign, err := SignWithAlipayKey([]byte(content))
+	if err != nil {
+		tb.Fatalf("sign v3 response: %v", err)
+	}
+	header := http.Header{}
+	header.Set("alipay-signature", sign)
+	header.Set("alipay-timestamp", timestamp)
+	header.Set("alipay-nonce", nonce)
+	if certSN != "" {
+		header.Set("alipay-sn", certSN)
+	}
+	return header
+}
+
+// V3ResponseHeadersWithKey 使用指定私钥构造带 V3 响应签名头的响应头，
+// certSN 非空时追加 alipay-sn 头；供证书轮换等场景使用。
+func V3ResponseHeadersWithKey(tb testing.TB, body []byte, timestamp, nonce string, key *rsa.PrivateKey, certSN string) http.Header {
+	tb.Helper()
+	content := timestamp + "\n" + nonce + "\n" + string(body) + "\n"
+	sign, err := SignWithKey([]byte(content), key)
+	if err != nil {
+		tb.Fatalf("sign v3 response with key: %v", err)
+	}
+	header := http.Header{}
+	header.Set("alipay-signature", sign)
+	header.Set("alipay-timestamp", timestamp)
+	header.Set("alipay-nonce", nonce)
+	if certSN != "" {
+		header.Set("alipay-sn", certSN)
+	}
+	return header
+}
+
+// V3ResponseHeadersWithAppKey 构造带请求方向签名的响应头，
+// 供测试错钥场景使用：签名来自商户私钥而非网关私钥。
+func V3ResponseHeadersWithAppKey(tb testing.TB, body []byte, timestamp, nonce string) http.Header {
+	tb.Helper()
+	content := timestamp + "\n" + nonce + "\n" + string(body) + "\n"
+	sign, err := SignWithAppKey([]byte(content))
+	if err != nil {
+		tb.Fatalf("sign v3 response with app key: %v", err)
+	}
+	header := http.Header{}
+	header.Set("alipay-signature", sign)
+	header.Set("alipay-timestamp", timestamp)
+	header.Set("alipay-nonce", nonce)
+	return header
+}
+
+// ReadAllBody 读取并关闭请求体，供测试网关侧核对签名使用。
+func ReadAllBody(tb testing.TB, r *http.Request) []byte {
+	tb.Helper()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		tb.Fatalf("read request body: %v", err)
+	}
+	_ = r.Body.Close()
+	return body
+}
+
+// VerifyV3Authorization 在测试网关侧独立重建 V3 请求签名原文并核对：
+// 原文 = authString、HTTP 方法、请求 URI、请求体（空则空行）、
+// 可选的代调用令牌，每行以 \n 结尾。实现独立于 internal/protocol，
+// 用于交叉核对 SDK 的签名行为。
+func VerifyV3Authorization(tb testing.TB, r *http.Request, body []byte, appAuthToken string) {
+	tb.Helper()
+	const scheme = "ALIPAY-SHA256withRSA"
+	raw := r.Header.Get("Authorization")
+	schemeGot, rest, ok := strings.Cut(raw, " ")
+	if !ok || schemeGot != scheme {
+		tb.Fatalf("unexpected Authorization scheme: %q", raw)
+	}
+	authString := rest
+	for _, part := range strings.Split(rest, ",") {
+		if strings.HasPrefix(part, "sign=") {
+			authString = strings.TrimSuffix(rest, ","+part)
+			signature := strings.TrimPrefix(part, "sign=")
+			content := authString + "\n" + r.Method + "\n" + r.RequestURI + "\n" + string(body) + "\n"
+			if appAuthToken != "" {
+				content += appAuthToken + "\n"
+			}
+			if err := VerifyWithAppKey([]byte(content), signature); err != nil {
+				tb.Fatalf("request signature mismatch: %v\ncontent: %q", err, content)
+			}
+			return
+		}
+	}
+	tb.Fatalf("Authorization header has no sign field: %q", raw)
 }

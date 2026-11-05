@@ -2,6 +2,7 @@ package notify_test
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -14,15 +15,18 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tiyee/go-alipay/core"
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
-	"github.com/tiyee/go-alipay/core/notify"
-	"github.com/tiyee/go-alipay/internal/testutil"
+	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/core/notify"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/internal/testutil"
+	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
-// 测试目标：通知表单只解码一次，特殊字符（+、%2B、%26、中文、空值）
-// 在传输编码与待验签串之间保持一致；缺签、错签、错公钥、重复参数
-// 与未支持策略全部拒绝；日志不包含通知参数值与签名。
+// 测试目标：Handler 以 Credentials 为构造首参并绑定认证快照；
+// 通知表单只解码一次，特殊字符（+、%2B、%26、中文、空值）在传输编码
+// 与待验签串之间保持一致；缺签、错签、错公钥、重复参数与未支持策略
+// 全部拒绝；日志不包含通知参数值与签名。
 
 const (
 	testAppID  = "2021000000000001"
@@ -46,6 +50,16 @@ var testDecoder = notify.DecoderFunc[testNotification](func(values url.Values) (
 		Body:        values.Get("body"),
 	}, nil
 })
+
+// newHandler 返回公钥模式的测试 Handler。
+func newHandler(t *testing.T, opts ...notify.ParseOption) *notify.Handler {
+	t.Helper()
+	handler, err := notify.NewHandler(testutil.NewCredentials(t), notify.PolicyTradeStatusSync, opts...)
+	if err != nil {
+		t.Fatalf("NewHandler() error = %v", err)
+	}
+	return handler
+}
 
 // notifySignContent 独立构造通知待验签串（复用 internal/testutil 的
 // 独立实现，与 internal/protocol、core/notify 互为交叉核对）：
@@ -95,7 +109,7 @@ func signedForm(t *testing.T, form url.Values) url.Values {
 	if err != nil {
 		t.Fatalf("sign form: %v", err)
 	}
-	out := form.Clone()
+	out := compat.CloneValues(form)
 	out.Set("sign_type", "RSA2")
 	out.Set("sign", sign)
 	return out
@@ -103,11 +117,10 @@ func signedForm(t *testing.T, form url.Values) url.Values {
 
 func TestParseVerifiesSignedNotification(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 	source := baseForm()
 	form := signedForm(t, source)
 
-	got, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, form)
+	got, err := notify.Parse(ctx, newHandler(t), form, testDecoder)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -135,7 +148,6 @@ func TestParseVerifiesSignedNotification(t *testing.T) {
 
 func TestParseSingleDecodeSpecialCharacters(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 	cases := []struct {
 		name    string
 		subject string
@@ -159,7 +171,7 @@ func TestParseSingleDecodeSpecialCharacters(t *testing.T) {
 			}
 			signed := signedForm(t, received)
 
-			got, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, signed)
+			got, err := notify.Parse(ctx, newHandler(t), signed, testDecoder)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -177,12 +189,11 @@ func TestParseSingleDecodeSpecialCharacters(t *testing.T) {
 // 若按请求规则把空值剔除后再构造待验签串，验签必须失败。
 func TestParseEmptyValueStaysInSignContent(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 
 	form := baseForm()
 	form.Set("body", "")
 	signed := signedForm(t, form)
-	if _, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, signed); err != nil {
+	if _, err := notify.Parse(ctx, newHandler(t), signed, testDecoder); err != nil {
 		t.Fatalf("empty value should participate in sign content: %v", err)
 	}
 
@@ -195,19 +206,18 @@ func TestParseEmptyValueStaysInSignContent(t *testing.T) {
 	}
 	wrong.Set("sign_type", "RSA2")
 	wrong.Set("sign", sign)
-	if _, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, wrong); err == nil {
+	if _, err := notify.Parse(ctx, newHandler(t), wrong, testDecoder); err == nil {
 		t.Fatal("sign content built without empty values must fail verification")
 	}
 }
 
 func TestParseRejectsDuplicateParams(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 	form := signedForm(t, baseForm())
 	form["out_trade_no"] = []string{"ORDER-A", "ORDER-B"}
 
-	_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, form)
-	protoErr, ok := errors.AsType[*core.ProtocolError](err)
+	_, err := notify.Parse(ctx, newHandler(t), form, testDecoder)
+	protoErr, ok := compat.AsType[*core.ProtocolError](err)
 	if !ok || !strings.Contains(protoErr.Reason, "duplicate") {
 		t.Fatalf("want duplicate param protocol error, got %v", err)
 	}
@@ -265,9 +275,8 @@ func TestParseSignatureFailures(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync,
-				testutil.NewAlipayVerifier(t), testDecoder, tc.mutate(t))
-			sigErr, ok := errors.AsType[*core.SignatureError](err)
+			_, err := notify.Parse(ctx, newHandler(t), tc.mutate(t), testDecoder)
+			sigErr, ok := compat.AsType[*core.SignatureError](err)
 			if !ok {
 				t.Fatalf("want *core.SignatureError, got %v", err)
 			}
@@ -278,105 +287,149 @@ func TestParseSignatureFailures(t *testing.T) {
 	}
 
 	t.Run("wrong public key", func(t *testing.T) {
-		wrongVerifier, err := verifiers.NewRSA2(testutil.AppPublicKeyPEM)
+		// 以应用公钥充当支付宝公钥：验签必然失败。
+		alipayPublicKey := appPublicKey(t)
+		wrongCredentials, err := auth.NewPublicKeyCredentials(auth.PublicKeyConfig{
+			AppSigner:       testutil.NewAppCryptoSigner(t),
+			AlipayPublicKey: alipayPublicKey,
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = notify.Parse(ctx, notify.PolicyTradeStatusSync, wrongVerifier, testDecoder,
-			signedForm(t, baseForm()))
-		if _, ok := errors.AsType[*core.SignatureError](err); !ok {
+		wrongHandler, err := notify.NewHandler(wrongCredentials, notify.PolicyTradeStatusSync)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = notify.Parse(ctx, wrongHandler, signedForm(t, baseForm()), testDecoder)
+		if _, ok := compat.AsType[*core.SignatureError](err); !ok {
 			t.Fatalf("want signature error with wrong public key, got %v", err)
+		}
+	})
+
+	t.Run("certificate mode via credentials verifier", func(t *testing.T) {
+		// 证书模式复用同一 Handler：单张可信证书 + 通知契约无标识时，
+		// 按官方 rsaCertCheckV1 行为使用该证书公钥验签。
+		suite := testutil.NewCertSuite(t)
+		certHandler, err := notify.NewHandler(suite.NewCertificateCredentials(t), notify.PolicyTradeStatusSync)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := notify.Parse(ctx, certHandler, signedForm(t, baseForm()), testDecoder); err != nil {
+			t.Fatalf("certificate mode parse: %v", err)
 		}
 	})
 }
 
-func TestParseRejectsUnsupportedInputs(t *testing.T) {
-	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
+func TestNewHandlerRejections(t *testing.T) {
 	signed := signedForm(t, baseForm())
 
+	t.Run("nil credentials", func(t *testing.T) {
+		_, err := notify.NewHandler(nil, notify.PolicyTradeStatusSync)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
+			t.Fatalf("want validation error, got %v", err)
+		}
+	})
 	t.Run("zero policy", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.Policy(0), verifier, testDecoder, signed)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.NewHandler(testutil.NewCredentials(t), notify.Policy(0))
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
 	t.Run("unimplemented policy value", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.Policy(9), verifier, testDecoder, signed)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.NewHandler(testutil.NewCredentials(t), notify.Policy(9))
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
-	t.Run("nil verifier", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, nil, testDecoder, signed)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+	t.Run("credentials without verifier", func(t *testing.T) {
+		_, err := notify.NewHandler(brokenCredentials{}, notify.PolicyTradeStatusSync)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
-		}
-	})
-	t.Run("nil decoder", func(t *testing.T) {
-		_, err := notify.Parse[testNotification](ctx, notify.PolicyTradeStatusSync, verifier, nil, signed)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
-			t.Fatalf("want validation error, got %v", err)
-		}
-	})
-	t.Run("nil ctx", func(t *testing.T) {
-		_, err := notify.Parse(nil, notify.PolicyTradeStatusSync, verifier, testDecoder, signed)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
-			t.Fatalf("want validation error, got %v", err)
-		}
-	})
-	t.Run("other notify type", func(t *testing.T) {
-		form := signed.Clone()
-		form.Set("notify_type", "other_notify")
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, form)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
-			t.Fatalf("want validation error, got %v", err)
-		}
-	})
-	t.Run("missing notify type", func(t *testing.T) {
-		form := signed.Clone()
-		form.Del("notify_type")
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, form)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
-			t.Fatalf("want validation error, got %v", err)
-		}
-	})
-	t.Run("unsupported charset", func(t *testing.T) {
-		form := signed.Clone()
-		form.Set("charset", "gbk")
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, form)
-		if _, ok := errors.AsType[*core.ProtocolError](err); !ok {
-			t.Fatalf("want protocol error, got %v", err)
 		}
 	})
 	t.Run("nil option", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, signed, nil)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.NewHandler(testutil.NewCredentials(t), notify.PolicyTradeStatusSync, nil)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
 	t.Run("invalid max form bytes", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder,
-			signed, notify.WithMaxFormBytes(0))
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.NewHandler(testutil.NewCredentials(t), notify.PolicyTradeStatusSync,
+			notify.WithMaxFormBytes(0))
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
+
+	// 以下为 Parse 调用期校验。
+	handler := newHandler(t)
+	t.Run("nil decoder", func(t *testing.T) {
+		_, err := notify.Parse[testNotification](context.Background(), handler, signed, nil)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
+			t.Fatalf("want validation error, got %v", err)
+		}
+	})
+	t.Run("nil ctx", func(t *testing.T) {
+		// 本用例专门验证 Parse 对 nil ctx 的显式拒绝，属于刻意的越界输入。
+		//lint:ignore SA1012 testing the nil-context guard on purpose
+		_, err := notify.Parse(nil, handler, signed, testDecoder)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
+			t.Fatalf("want validation error, got %v", err)
+		}
+	})
+	t.Run("other notify type", func(t *testing.T) {
+		form := compat.CloneValues(signed)
+		form.Set("notify_type", "other_notify")
+		if _, err := notify.Parse(context.Background(), handler, form, testDecoder); err == nil {
+			t.Fatal("mismatched notify type must fail")
+		}
+	})
+	t.Run("missing notify type", func(t *testing.T) {
+		form := compat.CloneValues(signed)
+		form.Del("notify_type")
+		if _, err := notify.Parse(context.Background(), handler, form, testDecoder); err == nil {
+			t.Fatal("missing notify type must fail")
+		}
+	})
+	t.Run("unsupported charset", func(t *testing.T) {
+		form := compat.CloneValues(signed)
+		form.Set("charset", "gbk")
+		if _, err := notify.Parse(context.Background(), handler, form, testDecoder); err == nil {
+			t.Fatal("unsupported charset must fail")
+		}
+	})
+}
+
+// brokenCredentials 的 Verifier 返回 nil，用于构造期拒绝路径。
+type brokenCredentials struct{}
+
+func (brokenCredentials) Mode() auth.Mode         { return auth.ModePublicKey }
+func (brokenCredentials) Signer() auth.Signer     { return nil }
+func (brokenCredentials) Verifier() auth.Verifier { return nil }
+func (brokenCredentials) Validate() error         { return nil }
+
+// appPublicKey 返回解析后的测试应用公钥（作为错误的支付宝公钥使用）。
+func appPublicKey(t *testing.T) *rsa.PublicKey {
+	t.Helper()
+	key, err := utils.ParsePublicKeyPKIX(utils.TrimKeyText(testutil.AppPublicKeyPEM))
+	if err != nil {
+		t.Fatalf("parse app public key: %v", err)
+	}
+	return key
 }
 
 // 领域解码器失败时错误被包装为 ProtocolError，但通过原因链仍可匹配。
 func TestParseWrapsDecoderError(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 	decoder := notify.DecoderFunc[testNotification](func(url.Values) (testNotification, error) {
 		return testNotification{}, &core.ValidationError{Field: "out_trade_no",
 			Reason: "required notify param is missing"}
 	})
-	_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, decoder, signedForm(t, baseForm()))
-	if _, ok := errors.AsType[*core.ProtocolError](err); !ok {
+	_, err := notify.Parse(ctx, newHandler(t), signedForm(t, baseForm()), decoder)
+	if _, ok := compat.AsType[*core.ProtocolError](err); !ok {
 		t.Fatalf("want protocol error, got %v", err)
 	}
-	valErr, ok := errors.AsType[*core.ValidationError](err)
+	valErr, ok := compat.AsType[*core.ValidationError](err)
 	if !ok || valErr.Field != "out_trade_no" {
 		t.Fatalf("want wrapped validation error, got %v", err)
 	}
@@ -384,7 +437,6 @@ func TestParseWrapsDecoderError(t *testing.T) {
 
 func TestParseRequest(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 
 	post := func(t *testing.T, body string) *http.Request {
 		t.Helper()
@@ -395,8 +447,7 @@ func TestParseRequest(t *testing.T) {
 
 	t.Run("verified", func(t *testing.T) {
 		raw := signedForm(t, baseForm()).Encode()
-		got, err := notify.ParseRequest(ctx, post(t, raw),
-			notify.PolicyTradeStatusSync, verifier, testDecoder)
+		got, err := notify.ParseRequest(ctx, newHandler(t), post(t, raw), testDecoder)
 		if err != nil {
 			t.Fatalf("parse request: %v", err)
 		}
@@ -407,25 +458,28 @@ func TestParseRequest(t *testing.T) {
 
 	t.Run("rejects GET", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/alipay/notify?x=1", nil)
-		_, err := notify.ParseRequest(ctx, req, notify.PolicyTradeStatusSync, verifier, testDecoder)
-		if _, ok := errors.AsType[*core.ProtocolError](err); !ok {
+		_, err := notify.ParseRequest(ctx, newHandler(t), req, testDecoder)
+		if _, ok := compat.AsType[*core.ProtocolError](err); !ok {
 			t.Fatalf("want protocol error, got %v", err)
 		}
 	})
 
 	t.Run("size limit", func(t *testing.T) {
 		raw := signedForm(t, baseForm()).Encode()
-		_, err := notify.ParseRequest(ctx, post(t, raw),
-			notify.PolicyTradeStatusSync, verifier, testDecoder, notify.WithMaxFormBytes(16))
-		if _, ok := errors.AsType[*core.ProtocolError](err); !ok {
+		handler, err := notify.NewHandler(testutil.NewCredentials(t),
+			notify.PolicyTradeStatusSync, notify.WithMaxFormBytes(16))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = notify.ParseRequest(ctx, handler, post(t, raw), testDecoder)
+		if _, ok := compat.AsType[*core.ProtocolError](err); !ok {
 			t.Fatalf("want protocol error, got %v", err)
 		}
 	})
 
 	t.Run("malformed form", func(t *testing.T) {
-		_, err := notify.ParseRequest(ctx, post(t, "a=%zz&b=c"),
-			notify.PolicyTradeStatusSync, verifier, testDecoder)
-		if _, ok := errors.AsType[*core.ProtocolError](err); !ok {
+		_, err := notify.ParseRequest(ctx, newHandler(t), post(t, "a=%zz&b=c"), testDecoder)
+		if _, ok := compat.AsType[*core.ProtocolError](err); !ok {
 			t.Fatalf("want protocol error, got %v", err)
 		}
 	})
@@ -433,15 +487,15 @@ func TestParseRequest(t *testing.T) {
 	t.Run("read failure", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/alipay/notify", nil)
 		req.Body = io.NopCloser(io.MultiReader(strings.NewReader("a=1"), errReader{}))
-		_, err := notify.ParseRequest(ctx, req, notify.PolicyTradeStatusSync, verifier, testDecoder)
-		if _, ok := errors.AsType[*core.TransportError](err); !ok {
+		_, err := notify.ParseRequest(ctx, newHandler(t), req, testDecoder)
+		if _, ok := compat.AsType[*core.TransportError](err); !ok {
 			t.Fatalf("want transport error, got %v", err)
 		}
 	})
 
 	t.Run("nil request", func(t *testing.T) {
-		_, err := notify.ParseRequest(ctx, nil, notify.PolicyTradeStatusSync, verifier, testDecoder)
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.ParseRequest(ctx, newHandler(t), nil, testDecoder)
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
@@ -486,14 +540,13 @@ func (h *captureHandler) text() string {
 
 func TestParseLogsFilteredFieldsOnly(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 
 	t.Run("success logs debug without values", func(t *testing.T) {
 		capture := &captureHandler{}
 		form := baseForm()
 		form.Set("subject", "机密标题-不应出现在日志")
-		if _, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder,
-			signedForm(t, form), notify.WithLogger(slog.New(capture))); err != nil {
+		if _, err := notify.Parse(ctx, newHandler(t, notify.WithLogger(slog.New(capture))),
+			signedForm(t, form), testDecoder); err != nil {
 			t.Fatalf("parse: %v", err)
 		}
 		text := capture.text()
@@ -506,8 +559,7 @@ func TestParseLogsFilteredFieldsOnly(t *testing.T) {
 		capture := &captureHandler{}
 		form := signedForm(t, baseForm())
 		form.Set("total_amount", "0.01")
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder,
-			form, notify.WithLogger(slog.New(capture)))
+		_, err := notify.Parse(ctx, newHandler(t, notify.WithLogger(slog.New(capture))), form, testDecoder)
 		if err == nil {
 			t.Fatal("want failure")
 		}
@@ -518,18 +570,18 @@ func TestParseLogsFilteredFieldsOnly(t *testing.T) {
 	})
 
 	t.Run("nil logger option rejected", func(t *testing.T) {
-		_, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder,
-			signedForm(t, baseForm()), notify.WithLogger(nil))
-		if _, ok := errors.AsType[*core.ValidationError](err); !ok {
+		_, err := notify.NewHandler(testutil.NewCredentials(t), notify.PolicyTradeStatusSync,
+			notify.WithLogger(nil))
+		if _, ok := compat.AsType[*core.ValidationError](err); !ok {
 			t.Fatalf("want validation error, got %v", err)
 		}
 	})
 }
 
-// 共享 Verifier 的并发解析必须安全且互不干扰。
+// 共享 Handler 的并发解析必须安全且互不干扰。
 func TestParseConcurrent(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
+	handler := newHandler(t)
 	const workers = 16
 	var wg sync.WaitGroup
 	errs := make([]error, workers)
@@ -539,7 +591,7 @@ func TestParseConcurrent(t *testing.T) {
 			defer wg.Done()
 			form := baseForm()
 			form.Set("out_trade_no", fmt.Sprintf("ORDER-%02d", i))
-			got, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier, testDecoder, signedForm(t, form))
+			got, err := notify.Parse(ctx, handler, signedForm(t, form), testDecoder)
 			switch {
 			case err != nil:
 				errs[i] = err

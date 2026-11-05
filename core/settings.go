@@ -1,14 +1,14 @@
 package core
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
-	"github.com/tiyee/go-alipay/core/auth"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
 )
 
 // Environment 标识支付宝接入环境。环境必须显式选择，
@@ -25,38 +25,24 @@ const (
 // String 实现 fmt.Stringer。
 func (e Environment) String() string { return string(e) }
 
-// AuthMode 标识 Client 的认证模式。模式由装载的凭证决定：
-// 公钥模式使用支付宝公钥验签；证书模式按响应 SN 选择可信证书（P5）。
-type AuthMode uint8
-
+// V3 REST OpenAPI 的网关基地址（V3 相对路由拼接到该基地址之后），
+// 生产与沙箱接入点见支付宝 V3 基本原则：
+// https://opendocs.alipay.com/open-v3/054oog
 const (
-	// AuthModeUnset 表示尚未选择认证模式，Client 初始化失败。
-	AuthModeUnset AuthMode = iota
-	// AuthModePublicKey 表示公钥模式。
-	AuthModePublicKey
-	// AuthModeCertificate 表示本地证书模式。
-	AuthModeCertificate
+	// GatewayProduction 是生产环境 V3 网关基地址。
+	GatewayProduction = "https://openapi.alipay.com"
+	// GatewaySandbox 是支持 TLS 的支付宝沙箱 V3 REST 网关。
+	GatewaySandbox = "https://openapi-sandbox.dl.alipaydev.com"
 )
 
-// String 实现 fmt.Stringer。
-func (m AuthMode) String() string {
-	switch m {
-	case AuthModePublicKey:
-		return "public_key"
-	case AuthModeCertificate:
-		return "certificate"
-	default:
-		return "unset"
-	}
-}
-
-// 传统网关 OpenAPI 的网关地址，依据官方沙箱接入说明
-// （https://opendocs.alipay.com/common/097jyh.md）与签名规范维护。
+// 页面跳转与唤端产物的提交网关（gateway.do）。产物不走 V3 REST：
+// 签名产物由用户浏览器或支付宝客户端 SDK 提交，因此 REST 地址与
+// 产物网关是两项独立配置，WithEnvironment 会按环境成对设置。
 const (
-	// GatewayProduction 是生产环境传统网关地址。
-	GatewayProduction = "https://openapi.alipay.com/gateway.do"
-	// GatewaySandbox 是沙箱环境传统网关地址。
-	GatewaySandbox = "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
+	// ArtifactGatewayProduction 是生产环境产物提交网关。
+	ArtifactGatewayProduction = "https://openapi.alipay.com/gateway.do"
+	// ArtifactGatewaySandbox 是沙箱环境产物提交网关。
+	ArtifactGatewaySandbox = "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
 )
 
 // 工程默认值，不是支付宝平台协议限制。
@@ -67,21 +53,22 @@ const (
 	DefaultMaxResponseBytes = int64(8 << 20)
 )
 
-// Settings 汇总 Client 的静态配置。字段由 core/option 中的选项填充；
-// Client 初始化后配置保持稳定，调用方不应在并发调用时修改。
+// Settings 汇总 Client 的公共静态配置。认证模式、签名器与验签器
+// 由 NewClient 的首参 Credentials 派生并绑定，公共选项无法覆盖；
+// 字段由 core/option 中的选项填充，初始化后保持稳定，
+// 调用方不应在并发调用时修改。
 type Settings struct {
 	// AppID 是支付宝开放平台应用 APPID。
 	AppID string
-	// Gateway 是网关地址；必须显式选择环境或配置网关。
+	// Gateway 是 V3 REST 网关基地址；Client 必须显式选择环境或配置。
 	Gateway *url.URL
-	// Signer 生成请求签名。
-	Signer auth.Signer
-	// Verifier 校验响应签名。
-	Verifier auth.Verifier
-	// AuthMode 是当前认证模式，由凭证选项设置；未选择时初始化失败。
-	AuthMode AuthMode
+	// ArtifactGateway 是页面跳转与唤端产物的提交网关（gateway.do）；
+	// 仅 ArtifactBuilder 需要，与 REST 地址相互独立。
+	ArtifactGateway *url.URL
+	// Mode 是认证模式，由首参 Credentials 派生的只读信息。
+	Mode auth.Mode
 	// HTTPClient 是可选的自定义 HTTP 客户端；
-	// 注入时由调用方管理连接与超时策略，SDK 仍传递 ctx 并关闭响应体。
+	// SDK 复用其传输与超时设置，并在专用副本上禁止重定向。
 	HTTPClient *http.Client
 	// RequestTimeout 是单次请求超时；零值使用 DefaultRequestTimeout。
 	RequestTimeout time.Duration
@@ -91,52 +78,78 @@ type Settings struct {
 	Logger *slog.Logger
 }
 
-// ClientOption 修改 Client 配置。选项实现位于 core/option。
+// ClientOption 修改 Client 的公共配置。选项实现位于 core/option；
+// 选项不能设置认证模式、签名器或验签器。
 type ClientOption func(*Settings) error
 
-// Client 是支付宝传统网关 OpenAPI 的通用客户端，负责公共参数、
-// 编码、签名、HTTP 执行、原始响应提取、验签与错误分类。
-// Client 不解释商户订单状态，不包含业务字段。
-// 初始化后可并发复用；每次调用复制参数并生成独立的时间戳与签名。
-type Client struct {
-	settings Settings
-	http     *http.Client
-	logger   *slog.Logger
-	now      func() time.Time
+// authSnapshot 是构造期绑定的只读认证快照：模式、签名器、验签器
+// 与证书身份。执行流程只读取快照，不回调 Credentials 的 getter，
+// 调用方原地修改凭证配置不会切换已构造 Client 的认证行为。
+type authSnapshot struct {
+	mode     auth.Mode
+	signer   auth.Signer
+	verifier auth.Verifier
+	identity auth.CertificateIdentity
 }
 
-// NewClient 应用选项并校验配置；配置不完整时返回 *ConfigError。
-// 构造过程不进行网络 I/O。
-func NewClient(opts ...ClientOption) (*Client, error) {
-	var settings Settings
-	for _, opt := range opts {
-		if opt == nil {
-			return nil, &ConfigError{Field: "option", Reason: "nil option"}
+// bindCredentials 校验凭证并冻结认证快照：
+// 拒绝 nil 与 typed nil；要求已定义模式、非空算法对象与完整材料；
+// 证书模式必须同时具备证书身份能力。不访问网络、不下载证书。
+func bindCredentials(credentials auth.Credentials) (authSnapshot, error) {
+	if credentials == nil || isNilCredentials(credentials) {
+		return authSnapshot{}, &ConfigError{Field: "credentials", Reason: "credentials is required"}
+	}
+	if err := credentials.Validate(); err != nil {
+		return authSnapshot{}, &ConfigError{Field: "credentials", Reason: "credentials validation failed", Err: err}
+	}
+	mode := credentials.Mode()
+	switch mode {
+	case auth.ModePublicKey, auth.ModeCertificate:
+	default:
+		return authSnapshot{}, &ConfigError{Field: "auth_mode", Reason: "unknown auth mode"}
+	}
+	signer := credentials.Signer()
+	if signer == nil || isNilCredentials(signer) {
+		return authSnapshot{}, &ConfigError{Field: "signer", Reason: "credentials returned a nil signer"}
+	}
+	verifier := credentials.Verifier()
+	if verifier == nil || isNilCredentials(verifier) {
+		return authSnapshot{}, &ConfigError{Field: "verifier", Reason: "credentials returned a nil verifier"}
+	}
+	if signer.Algorithm() != auth.SignatureAlgorithmRSA2 {
+		return authSnapshot{}, &ConfigError{Field: "signer",
+			Reason: "traditional gateway requests require the " + auth.SignatureAlgorithmRSA2.String() + " algorithm"}
+	}
+	snapshot := authSnapshot{mode: mode, signer: signer, verifier: verifier}
+	if mode == auth.ModeCertificate {
+		provider, ok := credentials.(auth.CertificateProvider)
+		if !ok {
+			return authSnapshot{}, &ConfigError{Field: "credentials",
+				Reason: "certificate mode requires the certificate identity capability"}
 		}
-		if err := opt(&settings); err != nil {
-			return nil, err
+		identity := provider.CertificateIdentity()
+		if identity.AppCertificateSN == "" || identity.RootCertificateSN == "" {
+			return authSnapshot{}, &ConfigError{Field: "certificate_identity",
+				Reason: "certificate identity is incomplete"}
 		}
+		snapshot.identity = identity
 	}
-	settings.applyDefaults()
-	if err := settings.validate(); err != nil {
-		return nil, err
-	}
-	httpClient := settings.HTTPClient
-	if httpClient == nil {
-		httpClient = defaultHTTPClient()
-	}
-	return &Client{
-		settings: settings,
-		http:     httpClient,
-		logger:   settings.Logger,
-		now:      time.Now,
-	}, nil
+	return snapshot, nil
 }
 
-// Settings 返回配置的快照，用于诊断；修改快照不影响 Client。
-func (c *Client) Settings() Settings {
-	c.settings.Gateway = cloneURL(c.settings.Gateway)
-	return c.settings
+// isNilCredentials 报告接口值是否为 nil 或持有 nil 指针（typed nil）。
+func isNilCredentials(value any) bool {
+	if value == nil {
+		return true
+	}
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func,
+		reflect.Chan, reflect.Interface, reflect.UnsafePointer:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
 func (s *Settings) applyDefaults() {
@@ -155,6 +168,17 @@ func (s *Settings) validate() error {
 	if strings.TrimSpace(s.AppID) == "" {
 		return &ConfigError{Field: "app_id", Reason: "app id is required"}
 	}
+	if s.Mode == auth.ModeUnset {
+		return &ConfigError{Field: "auth_mode", Reason: "auth mode is required"}
+	}
+	if s.RequestTimeout < 0 {
+		return &ConfigError{Field: "request_timeout", Reason: "timeout must not be negative"}
+	}
+	return nil
+}
+
+// validateGateway 校验 V3 REST 网关基地址；仅 Client 构造路径使用。
+func (s *Settings) validateGateway() error {
 	if s.Gateway == nil {
 		return &ConfigError{Field: "gateway",
 			Reason: "gateway is required; set an environment or an explicit gateway"}
@@ -165,41 +189,34 @@ func (s *Settings) validate() error {
 	if s.Gateway.Host == "" {
 		return &ConfigError{Field: "gateway", Reason: "gateway host is required"}
 	}
-	if s.Signer == nil {
-		return &ConfigError{Field: "signer", Reason: "signer is required"}
+	return nil
+}
+
+// validateArtifactGateway 校验产物提交网关；仅 ArtifactBuilder 使用。
+func (s *Settings) validateArtifactGateway() error {
+	if s.ArtifactGateway == nil {
+		return &ConfigError{Field: "artifact_gateway",
+			Reason: "artifact gateway is required; set an environment or an explicit artifact gateway"}
 	}
-	if s.Verifier == nil {
-		return &ConfigError{Field: "verifier", Reason: "verifier is required"}
+	if s.ArtifactGateway.Scheme != "http" && s.ArtifactGateway.Scheme != "https" {
+		return &ConfigError{Field: "artifact_gateway", Reason: "artifact gateway scheme must be http or https"}
 	}
-	if s.AuthMode == AuthModeUnset {
-		return &ConfigError{Field: "auth_mode",
-			Reason: "auth mode is required; configure a public key or certificate"}
-	}
-	if s.RequestTimeout < 0 {
-		return &ConfigError{Field: "request_timeout", Reason: "timeout must not be negative"}
+	if s.ArtifactGateway.Host == "" {
+		return &ConfigError{Field: "artifact_gateway", Reason: "artifact gateway host is required"}
 	}
 	return nil
 }
 
-// defaultHTTPClient 返回拒绝自动重定向的专用客户端，
-// 防止携带凭证的请求发往其他地址；不修改全局默认客户端。
-func defaultHTTPClient() *http.Client {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	return &http.Client{
-		Transport: transport,
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
+// signedHTTPClient 保留调用方的传输和超时设置，并禁止重发签名请求。
+func signedHTTPClient(configured *http.Client) *http.Client {
+	var client http.Client
+	if configured != nil {
+		client = *configured
+	} else if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+		client.Transport = transport.Clone()
+	} else {
+		client.Transport = http.DefaultTransport
 	}
-}
-
-func cloneURL(u *url.URL) *url.URL {
-	if u == nil {
-		return nil
-	}
-	return u.Clone()
-}
-
-func invalidConfigf(field, format string, args ...any) *ConfigError {
-	return &ConfigError{Field: field, Reason: fmt.Sprintf(format, args...)}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &client
 }

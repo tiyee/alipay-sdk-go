@@ -1,22 +1,107 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/tiyee/go-alipay/internal/protocol"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/internal/protocol"
 )
 
-// Client 实现 Executor：公共参数、编码合并、签名、HTTP 执行、
-// 原始响应提取、验签与错误分类。所有领域接口与自定义接口共用该流程。
+// Client 是支付宝 V3 REST OpenAPI 的通用客户端：构造相对路由请求、
+// JSON 请求体或 query 参数、Authorization 头签名、HTTP 执行、
+// 响应头验签与错误分类。它实现 Executor，所有领域接口与自定义
+// V3 接口共用该执行流程；签名与验签使用构造期绑定的认证快照，
+// 不回调 Credentials getter。
+//
+// V3 的成功语义由 HTTP 状态决定；非 2xx 响应按官方契约解析为
+// {code, message, links} 错误体。V3 请求模型的 notify_url 属于业务
+// 字段，本 Client 拒绝 WithNotifyURL 调用选项。
+//
+// Client 不解释商户订单状态，不包含业务字段。
+// 初始化后可并发复用；每次调用生成独立的时间戳、nonce 与签名。
+type Client struct {
+	settings Settings
+	snapshot authSnapshot
+	http     *http.Client
+	logger   *slog.Logger
+	now      func() time.Time
+	nonce    func() string
+}
+
+// NewClient 以 Credentials 为第一个必选参数构建 V3 客户端。
+// 构造顺序：校验凭证并绑定认证快照 → 处理公共选项 → 校验配置。
+// 构造过程不进行网络 I/O；配置不完整时返回 *ConfigError。
+func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, error) {
+	snapshot, err := bindCredentials(credentials)
+	if err != nil {
+		return nil, err
+	}
+	var settings Settings
+	for _, opt := range opts {
+		if opt == nil {
+			return nil, &ConfigError{Field: "option", Reason: "nil option"}
+		}
+		if err := opt(&settings); err != nil {
+			return nil, err
+		}
+	}
+	settings.Mode = snapshot.mode
+	settings.applyDefaults()
+	if err := settings.validate(); err != nil {
+		return nil, err
+	}
+	if err := settings.validateGateway(); err != nil {
+		return nil, err
+	}
+	return &Client{
+		settings: settings,
+		snapshot: snapshot,
+		http:     signedHTTPClient(settings.HTTPClient),
+		logger:   settings.Logger,
+		now:      time.Now,
+		nonce:    newNonce,
+	}, nil
+}
+
+// newNonce 生成 128 位随机 hex 串，用作请求 nonce 与 request id。
+func newNonce() string {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		// crypto/rand 失败属于系统级故障，返回空串让请求路径拒绝发送。
+		return ""
+	}
+	return hex.EncodeToString(buf[:])
+}
+
+// Settings 返回公共配置的快照，用于诊断；不包含签名器、验签器或
+// 凭证本身。修改快照不影响 Client，读取快照不写回字段。
+func (c *Client) Settings() Settings {
+	settings := c.settings
+	settings.Gateway = compat.CloneURL(c.settings.Gateway)
+	settings.ArtifactGateway = compat.CloneURL(c.settings.ArtifactGateway)
+	return settings
+}
+
+// Mode 返回构造期绑定的认证模式。
+func (c *Client) Mode() auth.Mode { return c.snapshot.mode }
+
+// Do 实现 Executor：规格与认证要求校验 → 构建请求与签名头 →
+// HTTP 执行 → 响应验签 → 错误分类。签名与协议失败优先于业务判断；
+// 未验签的响应不进入成功路径。
 //
 // Do 返回错误时，结果仍可能携带已获得的响应元信息（HTTP 状态、响应头）。
-// error_response 属于未签名报文，以 Verified=false 的 *APIError 返回，
+// 非 2xx 且未带签名的错误响应以 Verified=false 的 *APIError 返回，
 // 只能作为诊断信息。
 func (c *Client) Do(ctx context.Context, req WireRequest) (*APIResult, error) {
 	if ctx == nil {
@@ -26,97 +111,175 @@ func (c *Client) Do(ctx context.Context, req WireRequest) (*APIResult, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
 	}
-	if err := req.Params.validate(); err != nil {
+	// 必须证书的接口在统一执行路径校验，自定义 Operation 无法绕过。
+	if spec.AuthRequirement == AuthRequirementCertificate && c.snapshot.mode != auth.ModeCertificate {
+		return nil, &ValidationError{Field: "auth_requirement",
+			Reason: "operation requires certificate credentials; the client is configured for " + c.snapshot.mode.String()}
+	}
+	if err := req.Params.validate(spec.ParameterMode); err != nil {
 		return nil, err
 	}
-	form, err := c.buildParams(spec, req.Params, req.Settings)
-	if err != nil {
-		return nil, err
+	if req.Settings.NotifyURL != "" {
+		return nil, &ValidationError{Field: "notify_url",
+			Reason: "v3 request models carry notify_url as a business field; the notify_url call option only applies to page artifact building"}
 	}
 
 	start := c.now()
-	result, body, err := c.send(ctx, form)
+	result, body, err := c.send(ctx, spec, req.Params, req.Settings)
 	attrs := append(opAttrs(spec.Method), durationAttr(c.now().Sub(start)))
 	if err != nil {
-		c.logFailure(ctx, err, attrs)
+		logRequestFailure(c.logger, ctx, err, attrs)
 		return result, err
 	}
-	result, attrs, err = c.handleResponse(spec, result, body, attrs)
+	result, attrs, err = c.handleResponse(ctx, result, body, attrs)
 	if err != nil {
-		c.logFailure(ctx, err, attrs)
+		logRequestFailure(c.logger, ctx, err, attrs)
 		return result, err
 	}
 	attrs = append(attrs,
-		slog.Int("http_status", result.HTTPStatus),
-		slog.String("code", ResponseCodeSuccess.String()))
+		slog.Int("http_status", result.HTTPStatus))
 	c.logger.LogAttrs(ctx, slog.LevelDebug, "alipay request succeeded", attrs...)
 	return result, nil
 }
 
-// Execute 实现 Go 1.27 泛型方法形式的调用入口。
-// 它仅委托包级 Execute，不重复实现协议流程。
-func (c *Client) Execute[Req, Resp any](ctx context.Context,
-	operation Operation[Req, Resp], req Request[Req]) (*Response[Resp], error) {
-	return Execute(ctx, c, operation, req)
+// v3WireRequest 汇总签名与传输共用的请求要素：
+// URI 与请求体是同一份序列化结果，签名后不再重新编码。
+type v3WireRequest struct {
+	method      string
+	url         string
+	body        []byte
+	contentType string
+	headers     http.Header
 }
 
-// buildParams 组装请求参数。基于 Client 私有的新表单构建，
-// 不修改调用方传入的 EncodedParams；空值业务参数不参与传输与签名。
-func (c *Client) buildParams(spec OperationSpec, params EncodedParams, settings CallSettings) (url.Values, error) {
-	form := url.Values{}
-	form.Set(protocol.ParamAppID, c.settings.AppID)
-	form.Set(protocol.ParamMethod, spec.Method)
-	form.Set(protocol.ParamFormat, protocol.FormatJSON)
-	form.Set(protocol.ParamCharset, protocol.CharsetUTF8)
-	form.Set(protocol.ParamSignType, c.settings.Signer.Algorithm())
-	form.Set(protocol.ParamTimestamp, c.now().Format(protocol.TimestampLayout))
-	form.Set(protocol.ParamVersion, spec.Version)
+// buildWireRequest 组装请求要素与签名头。基于调用方输入的新对象构建，
+// 不修改传入的 EncodedParams；签名使用调用方 ctx，可随请求取消。
+func (c *Client) buildWireRequest(ctx context.Context, spec OperationSpec, params EncodedParams, settings CallSettings) (*v3WireRequest, error) {
+	var body []byte
+	var contentType string
 	switch params.Mode {
-	case ParameterModeBizJSON:
-		form.Set(protocol.ParamBizContent, string(params.JSON))
-	case ParameterModeForm:
-		for key, values := range params.Form {
-			if protocol.IsProtectedParam(key) {
-				return nil, &ValidationError{Field: key,
-					Reason: "form key overwrites a protected public parameter"}
-			}
-			for _, value := range values {
-				if value != "" {
-					form.Add(key, value)
-				}
-			}
+	case ParameterModeJSONBody, ParameterModeJSONBodyWithQuery:
+		if spec.HTTPMethod == HTTPMethodGet {
+			return nil, &ValidationError{Field: "parameter_mode",
+				Reason: "v3 GET requests must not carry a json body"}
 		}
+		body = []byte(params.JSON)
+		contentType = "application/json"
+	case ParameterModeQuery:
+	case ParameterModeMultipart:
+		if spec.HTTPMethod == http.MethodGet {
+			return nil, &ValidationError{Field: "parameter_mode", Reason: "v3 GET requests must not carry a multipart body"}
+		}
+		body = params.Body
+		contentType = params.ContentType
+	default:
+		return nil, &ValidationError{Field: "parameter_mode",
+			Reason: "v3 request parameter mode is not supported"}
 	}
-	if settings.NotifyURL != "" {
-		form.Set(protocol.ParamNotifyURL, settings.NotifyURL)
+	uri, err := expandPathParams(spec.Path, params.PathParams)
+	if err != nil {
+		return nil, err
+	}
+	if len(params.Form) != 0 {
+		// url.Values.Encode 按键排序输出，是签名与传输共用的唯一
+		// 序列化结果；不会在签名后重新编码。
+		uri += "?" + params.Form.Encode()
+	}
+
+	nonce := c.nonce()
+	if nonce == "" {
+		return nil, &ProtocolError{Op: "sign", Reason: "generate request nonce"}
+	}
+	timestamp := strconv.FormatInt(c.now().UnixMilli(), 10)
+	authString := protocol.BuildV3AuthString(c.settings.AppID, c.snapshot.identity.AppCertificateSN, nonce, timestamp)
+	signBody := body
+	if params.Mode == ParameterModeMultipart {
+		signBody = params.SignBody
+	}
+	content := protocol.BuildV3SignContent(authString, spec.HTTPMethod.String(), uri, string(signBody), settings.AppAuthToken)
+	signature, err := c.snapshot.signer.Sign(ctx, content)
+	if err != nil {
+		return nil, &SignatureError{Stage: "request", Reason: "sign request", Err: err}
+	}
+
+	headers := http.Header{}
+	if len(body) != 0 {
+		headers.Set("Content-Type", contentType)
+	}
+	headers.Set(protocol.V3HeaderAuthorization, protocol.V3AuthScheme+" "+authString+",sign="+signature.Value)
+	if c.snapshot.mode == auth.ModeCertificate {
+		headers.Set(protocol.V3HeaderRootCertSN, c.snapshot.identity.RootCertificateSN)
 	}
 	if settings.AppAuthToken != "" {
-		form.Set(protocol.ParamAppAuthToken, settings.AppAuthToken)
+		headers.Set(protocol.V3HeaderAppAuthToken, settings.AppAuthToken)
 	}
-	return form, nil
+	headers.Set(protocol.V3HeaderRequestID, nonce)
+	return &v3WireRequest{
+		method:      spec.HTTPMethod.String(),
+		url:         c.settings.Gateway.String() + uri,
+		body:        body,
+		contentType: contentType,
+		headers:     headers,
+	}, nil
 }
 
-// send 签名并执行 HTTP 请求，读取响应体。构造与传输失败
-// 不产生业务元信息；收到响应时返回状态、响应头与原始报文。
-func (c *Client) send(ctx context.Context, form url.Values) (*APIResult, []byte, error) {
-	signContent := protocol.BuildSignContent(form)
-	signature, err := c.settings.Signer.Sign([]byte(signContent))
-	if err != nil {
-		return nil, nil, &SignatureError{Stage: "request", Reason: "sign request", Err: err}
+// expandPathParams replaces {name} path templates and rejects missing or
+// unused values so a request cannot silently target an incomplete route.
+func expandPathParams(path string, params map[string]string) (string, error) {
+	var builder strings.Builder
+	used := make(map[string]struct{}, len(params))
+	for i := 0; i < len(path); {
+		if path[i] != '{' {
+			builder.WriteByte(path[i])
+			i++
+			continue
+		}
+		end := strings.IndexByte(path[i+1:], '}')
+		if end < 0 {
+			return "", &ValidationError{Field: "path", Reason: "path contains an unterminated parameter"}
+		}
+		end += i + 1
+		name := path[i+1 : end]
+		if name == "" {
+			return "", &ValidationError{Field: "path", Reason: "path contains an empty parameter name"}
+		}
+		value, ok := params[name]
+		if !ok || value == "" {
+			return "", &ValidationError{Field: "path_params", Reason: "missing value for path parameter " + name}
+		}
+		builder.WriteString(url.PathEscape(value))
+		used[name] = struct{}{}
+		i = end + 1
 	}
-	form.Set(protocol.ParamSign, signature)
+	for name := range params {
+		if _, ok := used[name]; !ok {
+			return "", &ValidationError{Field: "path_params", Reason: "unused path parameter " + name}
+		}
+	}
+	return builder.String(), nil
+}
 
+// send 在请求超时约束下执行 HTTP 请求并读取响应体。
+// 构造与传输失败不产生业务元信息；收到响应时返回状态、响应头与原始报文。
+func (c *Client) send(ctx context.Context, spec OperationSpec, params EncodedParams, settings CallSettings) (*APIResult, []byte, error) {
+	wire, err := c.buildWireRequest(ctx, spec, params, settings)
+	if err != nil {
+		return nil, nil, err
+	}
 	if c.settings.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.settings.RequestTimeout)
 		defer cancel()
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.settings.Gateway.String(), strings.NewReader(form.Encode()))
+	httpReq, err := http.NewRequestWithContext(ctx, wire.method, wire.url, bytes.NewReader(wire.body))
 	if err != nil {
 		return nil, nil, &ProtocolError{Op: "build", Reason: "build http request", Err: err}
 	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	for key, values := range wire.headers {
+		for _, value := range values {
+			httpReq.Header.Add(key, value)
+		}
+	}
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
@@ -139,75 +302,85 @@ func (c *Client) send(ctx context.Context, form url.Values) (*APIResult, []byte,
 	return result, raw, nil
 }
 
-// handleResponse 提取原始节点、验签并分类错误。签名与协议失败
-// 优先于业务判断；未验签的响应不进入成功路径。
-func (c *Client) handleResponse(spec OperationSpec, result *APIResult, body []byte, attrs []slog.Attr) (*APIResult, []slog.Attr, error) {
+// handleResponse 验签并分类响应。成功（2xx）必须携带
+// alipay-signature 头；非 2xx 按官方契约解析错误体，响应带签名时
+// 先验签，未带签名以未验签错误返回。
+func (c *Client) handleResponse(ctx context.Context, result *APIResult, body []byte, attrs []slog.Attr) (*APIResult, []slog.Attr, error) {
 	attrs = append(attrs, slog.Int("http_status", result.HTTPStatus))
-	if result.HTTPStatus != http.StatusOK {
-		return result, attrs, &HTTPError{Status: result.HTTPStatus, BodySnippet: bodySnippet(body)}
+	if result.HTTPStatus < 200 || result.HTTPStatus > 299 {
+		return c.handleErrorResponse(ctx, result, body, attrs)
 	}
-	raw, err := protocol.ExtractRawResponse(body, spec.ResponseKey)
-	if err != nil {
-		return result, attrs, &ProtocolError{Op: "extract", Reason: "extract response node", Err: err}
+	if len(body) == 0 {
+		return result, attrs, &ProtocolError{Op: "extract", Reason: "empty response body"}
 	}
-	if raw.ErrorResponse != nil {
-		gw, parseErr := protocol.ParseGatewayError(raw.ErrorResponse)
-		if parseErr != nil {
-			return result, attrs, &ProtocolError{Op: "extract",
-				Reason: "parse error_response", Err: parseErr}
+	signature := result.Header.Get(protocol.V3HeaderSignature)
+	if signature == "" {
+		return result, attrs, &SignatureError{Stage: "response", Reason: "missing alipay-signature header"}
+	}
+	input := auth.VerificationInput{
+		Payload: protocol.BuildV3VerifyContent(
+			result.Header.Get(protocol.V3HeaderTimestamp),
+			result.Header.Get(protocol.V3HeaderNonce),
+			body,
+		),
+		Signature: auth.Signature{
+			Algorithm: auth.SignatureAlgorithmRSA2,
+			Value:     signature,
+		},
+		// 公钥模式忽略 KeyID；证书模式按 alipay-sn 选择本地可信证书。
+		KeyID: result.Header.Get(protocol.V3HeaderCertSN),
+	}
+	if err := c.snapshot.verifier.Verify(ctx, input); err != nil {
+		if _, ok := compat.AsType[*auth.CertSelectError](err); ok {
+			return result, attrs, &CertificateError{Reason: "select trusted certificate by alipay-sn", Err: err}
 		}
-		attrs = append(attrs, slog.String("code", gw.Code), slog.String("sub_code", gw.SubCode))
-		return result, attrs, &APIError{
-			Code:    ResponseCode(gw.Code),
-			Msg:     gw.Msg,
-			SubCode: gw.SubCode,
-			SubMsg:  gw.SubMsg,
-		}
-	}
-	if raw.Sign == "" {
-		return result, attrs, &SignatureError{Stage: "response", Reason: "missing signature"}
-	}
-	if err := c.settings.Verifier.Verify(raw.Node, raw.Sign); err != nil {
 		return result, attrs, &SignatureError{Stage: "response", Reason: "verify signature", Err: err}
 	}
 	result.SignatureVerified = true
-	result.Node = raw.Node
-
-	code, err := protocol.ParseResponseCode(raw.Node)
-	if err != nil {
-		return result, attrs, &ProtocolError{Op: "extract", Reason: "parse response code", Err: err}
-	}
-	if !acceptsCode(spec.AcceptedCodes, ResponseCode(code)) {
-		gw, parseErr := protocol.ParseGatewayError(raw.Node)
-		if parseErr != nil {
-			return result, attrs, &ProtocolError{Op: "extract",
-				Reason: "parse business error", Err: parseErr}
-		}
-		attrs = append(attrs, slog.String("code", gw.Code), slog.String("sub_code", gw.SubCode))
-		return result, attrs, &APIError{
-			Code:     ResponseCode(gw.Code),
-			Msg:      gw.Msg,
-			SubCode:  gw.SubCode,
-			SubMsg:   gw.SubMsg,
-			Verified: true,
-		}
-	}
+	result.Node = append([]byte(nil), body...)
 	return result, attrs, nil
 }
 
-func acceptsCode(codes []ResponseCode, code ResponseCode) bool {
-	for _, accepted := range codes {
-		if accepted == code {
-			return true
+// handleErrorResponse 处理非 2xx 响应：带签名时先验签（验签失败即
+// 失败），再解析官方错误体；无签名或解析失败按未验签诊断处理。
+func (c *Client) handleErrorResponse(ctx context.Context, result *APIResult, body []byte, attrs []slog.Attr) (*APIResult, []slog.Attr, error) {
+	verified := false
+	if signature := result.Header.Get(protocol.V3HeaderSignature); signature != "" {
+		input := auth.VerificationInput{
+			Payload: protocol.BuildV3VerifyContent(
+				result.Header.Get(protocol.V3HeaderTimestamp),
+				result.Header.Get(protocol.V3HeaderNonce),
+				body,
+			),
+			Signature: auth.Signature{
+				Algorithm: auth.SignatureAlgorithmRSA2,
+				Value:     signature,
+			},
+			KeyID: result.Header.Get(protocol.V3HeaderCertSN),
 		}
+		if err := c.snapshot.verifier.Verify(ctx, input); err != nil {
+			if _, ok := compat.AsType[*auth.CertSelectError](err); ok {
+				return result, attrs, &CertificateError{Reason: "select trusted certificate by alipay-sn", Err: err}
+			}
+			return result, attrs, &SignatureError{Stage: "response", Reason: "verify error response signature", Err: err}
+		}
+		verified = true
 	}
-	return false
+	gw, err := protocol.ParseV3Error(body)
+	if err != nil {
+		return result, attrs, &HTTPError{Status: result.HTTPStatus, BodySnippet: bodySnippet(body)}
+	}
+	attrs = append(attrs, slog.String("code", gw.Code))
+	return result, attrs, &APIError{
+		Code:     ErrorCode(gw.Code),
+		Msg:      gw.Message,
+		Links:    gw.Links,
+		Verified: verified,
+	}
 }
 
-// logFailure 按错误分类选择日志级别：平台业务拒绝为 Warn，
-// 主动取消为 Debug，网络、协议、安全与 HTTP 失败为 Error。
-// 仅输出筛选后的诊断字段，不记录报文、URL、签名原文与错误文本。
-func (c *Client) logFailure(ctx context.Context, err error, attrs []slog.Attr) {
+// logRequestFailure 是统一的失败日志出口。
+func logRequestFailure(logger *slog.Logger, ctx context.Context, err error, attrs []slog.Attr) {
 	level := slog.LevelError
 	if kind, ok := err.(ErrorKinder); ok {
 		attrs = append(attrs, slog.String("error_kind", kind.Kind().String()))
@@ -218,7 +391,7 @@ func (c *Client) logFailure(ctx context.Context, err error, attrs []slog.Attr) {
 			level = slog.LevelDebug
 		}
 	}
-	c.logger.LogAttrs(ctx, level, "alipay request failed", attrs...)
+	logger.LogAttrs(ctx, level, "alipay request failed", attrs...)
 }
 
 func opAttrs(method string) []slog.Attr {

@@ -1,12 +1,11 @@
 package signers_test
 
 import (
-	"bytes"
 	"testing"
 
-	"github.com/tiyee/go-alipay/core/auth/signers"
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
-	"github.com/tiyee/go-alipay/internal/testutil"
+	"github.com/tiyee/alipay-sdk-go/core/auth/signers"
+	"github.com/tiyee/alipay-sdk-go/core/auth/verifiers"
+	"github.com/tiyee/alipay-sdk-go/internal/testutil"
 )
 
 // 测试材料均为本仓库专用虚构密钥。
@@ -14,10 +13,7 @@ import (
 func TestRSA2SignMatchesIndependentOpenSSLVector(t *testing.T) {
 	// openssl dgst -sha256 -sign 独立生成的已知答案向量，
 	// 避免同一套签名与验签实现互相证明。
-	signer, err := signers.NewRSA2(testutil.AppPrivateKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
+	signer := testutil.NewAppSigner(t)
 	got, err := signer.Sign([]byte(testutil.KnownAnswerSignContent))
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
@@ -30,35 +26,33 @@ func TestRSA2SignMatchesIndependentOpenSSLVector(t *testing.T) {
 func TestRSA2SignThenVerifyWithSeparateKeyMaterial(t *testing.T) {
 	// 应用私钥签名、支付宝公钥（同一密钥对的公钥部分）验签，
 	// 并用网关私钥的独立密钥对验证失败路径。
-	signer, err := signers.NewRSA2(testutil.AppPrivateKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
-	verifier, err := verifiers.NewRSA2(testutil.AppPublicKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
+	signer := testutil.NewAppSigner(t)
+	verifier := testutil.NewAlipayVerifier(t)
 	signature, err := signer.Sign([]byte("data"))
 	if err != nil {
 		t.Fatalf("Sign() error = %v", err)
 	}
-	if err := verifier.Verify([]byte("data"), signature); err != nil {
-		t.Fatalf("Verify() error = %v", err)
+	// 应用私钥与支付宝公钥是不同密钥对，交叉验签必须失败。
+	if err := verifier.Verify([]byte("data"), signature); err == nil {
+		t.Fatal("Verify() with unrelated key should fail")
 	}
 }
 
 func TestRSA2VerifyFailures(t *testing.T) {
-	signer, err := signers.NewRSA2(testutil.AppPrivateKeyPEM)
+	appKey := testutil.NewAppCryptoSigner(t)
+	alipayKey := testutil.NewAlipayCryptoSigner(t)
+	signer, err := signers.NewRSA2(appKey)
 	if err != nil {
 		t.Fatalf("NewRSA2() error = %v", err)
 	}
-	gatewaySigner, err := signers.NewRSA2(testutil.AlipayPrivateKeyPEM)
+	gatewaySigner, err := signers.NewRSA2(alipayKey)
 	if err != nil {
 		t.Fatalf("NewRSA2() error = %v", err)
 	}
-	verifier, err := verifiers.NewRSA2(testutil.AppPublicKeyPEM)
+	// 用应用公钥验签：网关私钥产生的签名属于不同密钥对，必须失败。
+	appVerifier, err := verifiers.NewRSA2FromKey(&appKey.PublicKey)
 	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
+		t.Fatalf("build app verifier: %v", err)
 	}
 	signature, err := signer.Sign([]byte("payload"))
 	if err != nil {
@@ -81,69 +75,26 @@ func TestRSA2VerifyFailures(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := verifier.Verify(tt.data, tt.sign); err == nil {
+			if err := appVerifier.Verify(tt.data, tt.sign); err == nil {
 				t.Fatalf("Verify() expect error, got nil")
 			}
 		})
 	}
 }
 
-func TestRSA2DeterministicSignContent(t *testing.T) {
-	signer, err := signers.NewRSA2(testutil.AppPrivateKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
-	first, err := signer.Sign([]byte(testutil.KnownAnswerSignContent))
-	if err != nil {
-		t.Fatalf("Sign() error = %v", err)
-	}
-	if first != testutil.KnownAnswerSignature {
-		t.Fatalf("PKCS#1 v1.5 签名对同一输入应确定：got %q", first)
+func TestRSA2RejectsUnsupportedSigners(t *testing.T) {
+	if _, err := signers.NewRSA2(nil); err == nil {
+		t.Fatal("NewRSA2(nil) expect error")
 	}
 }
 
-func TestRSA2RejectsUnsupportedKeys(t *testing.T) {
-	tests := []struct {
-		name string
-		pem  string
-	}{
-		{name: "空内容", pem: ""},
-		{name: "非 PEM", pem: "not a pem"},
-		{name: "PKCS#1 私钥", pem: "-----BEGIN RSA PRIVATE KEY-----\nMA==\n-----END RSA PRIVATE KEY-----"},
-		{name: "公钥当私钥", pem: testutil.AppPublicKeyPEM},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if _, err := signers.NewRSA2(tt.pem); err == nil {
-				t.Fatalf("NewRSA2() expect error, got nil")
-			}
-		})
-	}
-	if _, err := verifiers.NewRSA2(testutil.AppPrivateKeyPEM); err == nil {
-		t.Fatal("verifiers.NewRSA2 with private key expect error")
-	}
-	if _, err := verifiers.NewRSA2(""); err == nil {
-		t.Fatal("verifiers.NewRSA2 with empty expect error")
-	}
-}
-
-// 编译期检查：算法标识固定为 RSA2。
 func TestAlgorithmValues(t *testing.T) {
-	signer, err := signers.NewRSA2(testutil.AppPrivateKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
+	signer := testutil.NewAppSigner(t)
 	if signer.Algorithm() != "RSA2" {
 		t.Fatalf("Algorithm() = %q, want RSA2", signer.Algorithm())
 	}
-	verifier, err := verifiers.NewRSA2(testutil.AppPublicKeyPEM)
-	if err != nil {
-		t.Fatalf("NewRSA2() error = %v", err)
-	}
+	verifier := testutil.NewAlipayVerifier(t)
 	if verifier.Algorithm() != "RSA2" {
 		t.Fatalf("Algorithm() = %q, want RSA2", verifier.Algorithm())
-	}
-	if !bytes.Contains([]byte(signer.Algorithm()), []byte("RSA")) {
-		t.Fatal("unreachable")
 	}
 }

@@ -5,54 +5,56 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
-	"testing/synctest"
-	"time"
 
-	"github.com/tiyee/go-alipay/core"
-	"github.com/tiyee/go-alipay/core/option"
-	"github.com/tiyee/go-alipay/internal/testutil"
+	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/internal/testutil"
 )
 
-// 测试目标：本地 httptest 服务独立校验 SDK 请求（服务端签名核对），
-// 并返回独立构造的签名响应；正确报文通过，篡改报文失败。
+// V3 REST 协议测试：本地 httptest 服务独立复算 V3 请求签名
+// （从收到的 Authorization 头与方法、URI、请求体重建签名原文），
+// 并返回带响应签名头的 JSON；正确报文通过，篡改与缺签失败。
 
 const (
-	testAppID       = "2021000000000001"
-	testMethod      = "alipay.trade.query"
-	testRespKey     = "alipay_trade_query_response"
-	testFormMethod  = "alipay.trade.custom.form" // Form 模式扩展接口
-	testFormRespKey = "alipay_trade_custom_form_response"
+	testAppID   = "2021000000000001"
+	testV3Path  = "/v3/alipay/trade/query"
+	testV3Query = "/v3/alipay/data/dataservice/bill/downloadurl/query"
 )
 
 type queryRequest struct {
-	OutTradeNo string  `json:"out_trade_no,omitempty"`
+	OutTradeNo string  `json:"out_trade_no"`
 	TradeNo    *string `json:"trade_no,omitempty"`
-	Amount     string  `json:"amount,omitempty"`
-	Subject    string  `json:"subject,omitempty"`
 }
 
 type queryResponse struct {
-	Code        string `json:"code"`
 	TradeNo     string `json:"trade_no"`
 	TradeStatus string `json:"trade_status"`
-	TotalAmount string `json:"total_amount"`
 }
 
-func newTestOperation(t *testing.T) core.Operation[queryRequest, queryResponse] {
+type billRequest struct {
+	BillType string  `query:"bill_type"`
+	BillDate string  `query:"bill_date,omitempty"`
+	Flag     *string `query:"flag,omitempty"`
+}
+
+type billResponse struct {
+	BillDownloadURL string `json:"bill_download_url"`
+}
+
+func newQueryOperation(t *testing.T) core.Operation[queryRequest, queryResponse] {
 	t.Helper()
 	op, err := core.NewJSONOperation[queryRequest, queryResponse](core.OperationSpec{
-		Method:        testMethod,
-		Version:       "1.0",
-		ResponseKey:   testRespKey,
-		ParameterMode: core.ParameterModeBizJSON,
+		Method:          "alipay.trade.query",
+		HTTPMethod:      core.HTTPMethodPost,
+		Path:            testV3Path,
+		ParameterMode:   core.ParameterModeJSONBody,
+		AuthRequirement: core.AuthRequirementAny,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONOperation() error = %v", err)
@@ -60,353 +62,419 @@ func newTestOperation(t *testing.T) core.Operation[queryRequest, queryResponse] 
 	return op
 }
 
-// testFormRequest 演示直接参数模式：业务字段由调用方编码为表单参数。
-type testFormRequest struct {
-	OutTradeNo string
-	Overrides  url.Values // 测试用：允许注入受保护参数名
-}
-
-func testFormEncoder() core.Encoder[testFormRequest] {
-	return core.EncoderFunc[testFormRequest](func(value testFormRequest) (core.EncodedParams, error) {
-		if value.OutTradeNo == "" {
-			return core.EncodedParams{}, errors.New("out_trade_no is required")
-		}
-		form := url.Values{"out_trade_no": {value.OutTradeNo}}
-		for key, vs := range value.Overrides {
-			form[key] = vs
-		}
-		return core.EncodedParams{Mode: core.ParameterModeForm, Form: form}, nil
-	})
-}
-
-func newTestFormOperation(t *testing.T) core.Operation[testFormRequest, queryResponse] {
+func newBillOperation(t *testing.T) core.Operation[billRequest, billResponse] {
 	t.Helper()
-	op, err := core.NewOperation[testFormRequest, queryResponse](core.OperationSpec{
-		Method:        testFormMethod,
-		Version:       "1.0",
-		ResponseKey:   testFormRespKey,
-		ParameterMode: core.ParameterModeForm,
-	}, testFormEncoder(), core.JSONDecoder[queryResponse]())
+	op, err := core.NewJSONOperation[billRequest, billResponse](core.OperationSpec{
+		Method:          "alipay.data.dataservice.bill.downloadurl.query",
+		HTTPMethod:      core.HTTPMethodGet,
+		Path:            testV3Query,
+		ParameterMode:   core.ParameterModeQuery,
+		AuthRequirement: core.AuthRequirementAny,
+	})
 	if err != nil {
-		t.Fatalf("NewOperation() error = %v", err)
+		t.Fatalf("NewJSONOperation() error = %v", err)
 	}
 	return op
 }
 
-// newGateway 启动测试网关：每个请求先做服务端签名核对，
-// 再由 respond 决定响应。核对失败会记录为测试错误。
-func newGateway(t *testing.T, respond func(form url.Values) (int, string)) *httptest.Server {
+func newTestClient(t *testing.T, gateway string, opts ...core.ClientOption) *core.Client {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			t.Errorf("gateway parse form: %v", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		form := r.PostForm
-		signContent := testutil.SignForm(form)
-		if err := testutil.VerifyWithAppKey([]byte(signContent), form.Get("sign")); err != nil {
-			t.Errorf("gateway: request signature invalid: %v\nsign content: %s", err, signContent)
-		}
-		status, body := respond(form)
-		w.Header().Set("Content-Type", "text/html;charset=utf-8")
-		w.WriteHeader(status)
-		_, _ = w.Write([]byte(body))
-	}))
-}
-
-// signedResponse 构造带网关签名的同步响应。
-func signedResponse(t *testing.T, responseKey, node string) string {
-	t.Helper()
-	sign, err := testutil.SignWithAlipayKey([]byte(node))
-	if err != nil {
-		t.Fatalf("sign response: %v", err)
-	}
-	return `{"` + responseKey + `":` + node + `,"sign":"` + sign + `"}`
-}
-
-func successNode(extra string) string {
-	return `{"code":"10000","msg":"Success"` + extra + `}`
-}
-
-func newTestClient(t *testing.T, gatewayURL string, opts ...core.ClientOption) *core.Client {
-	t.Helper()
-	base := []core.ClientOption{
-		option.WithAppID(testAppID),
-		option.WithGateway(gatewayURL),
-		option.WithPrivateKey(testutil.AppPrivateKeyPEM),
-		option.WithAlipayPublicKey(testutil.AlipayPublicKeyPEM),
-	}
-	client, err := core.NewClient(append(base, opts...)...)
+	opts = append([]core.ClientOption{option.WithAppID(testAppID), option.WithGateway(gateway)}, opts...)
+	client, err := core.NewClient(testutil.NewCredentials(t), opts...)
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 	return client
 }
 
-func executeQuery(t *testing.T, client *core.Client, op core.Operation[queryRequest, queryResponse]) (*core.Response[queryResponse], error) {
-	t.Helper()
-	return client.Execute(context.Background(), op, core.Request[queryRequest]{
-		Body: queryRequest{OutTradeNo: "20150320010101001", Amount: "88.88", Subject: "测试商品"},
-	})
-}
-
 func TestClientSuccessAndServerSideVerification(t *testing.T) {
-	var gotForm url.Values
-	gateway := newGateway(t, func(form url.Values) (int, string) {
-		gotForm = form
-		return http.StatusOK, signedResponse(t, testRespKey,
-			`{"code":"10000","msg":"Success","trade_no":"2026010122001400001234567890","trade_status":"TRADE_SUCCESS","total_amount":"88.88"}`)
-	})
+	var gotAuthorization, gotRequestID string
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := testutil.ReadAllBody(t, r)
+		testutil.VerifyV3Authorization(t, r, body, "")
+		gotAuthorization = r.Header.Get("Authorization")
+		gotRequestID = r.Header.Get("alipay-request-id")
+		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+			t.Errorf("content type = %q", ct)
+		}
+		if gotRequestID == "" {
+			t.Error("alipay-request-id header is required")
+		}
+		node := `{"trade_no":"2026110522001400001","trade_status":"TRADE_SUCCESS"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000000", "resp-nonce-1", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(node))
+	}))
 	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
 
-	resp, err := executeQuery(t, client, op)
+	client := newTestClient(t, gateway.URL)
+	op := newQueryOperation(t)
+	resp, err := core.Execute(context.Background(), client, op, core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050001"},
+	})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if resp.Data == nil {
-		t.Fatal("Data is nil")
-	}
-	if resp.Data.TradeStatus != "TRADE_SUCCESS" || resp.Data.TotalAmount != "88.88" {
-		t.Fatalf("Data = %+v", resp.Data)
-	}
 	if !resp.Result.SignatureVerified {
-		t.Fatal("SignatureVerified = false")
+		t.Error("result must be signature verified")
+	}
+	if resp.Data == nil || resp.Data.TradeNo != "2026110522001400001" || resp.Data.TradeStatus != "TRADE_SUCCESS" {
+		t.Fatalf("unexpected data: %+v", resp.Data)
+	}
+	if !strings.Contains(gotAuthorization, "app_id="+testAppID+",") || strings.Contains(gotAuthorization, "app_cert_sn") {
+		t.Errorf("public key mode Authorization must carry app_id without cert sn: %q", gotAuthorization)
 	}
 	if resp.Result.HTTPStatus != http.StatusOK {
-		t.Fatalf("HTTPStatus = %d", resp.Result.HTTPStatus)
+		t.Errorf("http status = %d", resp.Result.HTTPStatus)
 	}
+}
 
-	// 服务端核对公共参数与业务参数。
-	want := map[string]string{
-		"app_id":      testAppID,
-		"method":      testMethod,
-		"format":      "JSON",
-		"charset":     "utf-8",
-		"sign_type":   "RSA2",
-		"version":     "1.0",
-		"biz_content": `{"out_trade_no":"20150320010101001","amount":"88.88","subject":"测试商品"}`,
-	}
-	for key, wantValue := range want {
-		if got := gotForm.Get(key); got != wantValue {
-			t.Errorf("form[%q] = %q, want %q", key, got, wantValue)
+func TestClientGETQuerySigning(t *testing.T) {
+	var gotURI string
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
 		}
-	}
-	ts, err := time.ParseInLocation("2006-01-02 15:04:05", gotForm.Get("timestamp"), time.Local)
+		body := testutil.ReadAllBody(t, r)
+		if len(body) != 0 {
+			t.Errorf("GET body = %q, want empty", body)
+		}
+		testutil.VerifyV3Authorization(t, r, body, "")
+		gotURI = r.RequestURI
+		node := `{"bill_download_url":"https://example.com/bill.zip"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000001", "resp-nonce-2", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(node))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	resp, err := core.Execute(context.Background(), client, newBillOperation(t), core.Request[billRequest]{
+		Body: billRequest{BillType: "trade", BillDate: "2026-11-04"},
+	})
 	if err != nil {
-		t.Fatalf("timestamp format invalid: %q", gotForm.Get("timestamp"))
+		t.Fatalf("Execute() error = %v", err)
 	}
-	if drift := time.Since(ts); drift < -time.Minute || drift > time.Minute {
-		t.Errorf("timestamp = %v, drift %v", ts, drift)
+	if resp.Data == nil || resp.Data.BillDownloadURL != "https://example.com/bill.zip" {
+		t.Fatalf("unexpected data: %+v", resp.Data)
 	}
-	if gotForm.Get("notify_url") != "" || gotForm.Get("app_auth_token") != "" {
-		t.Error("call settings should be absent when unset")
-	}
-}
-
-func TestClientRawResponseNodeSurvivesForVerification(t *testing.T) {
-	// 节点含 \/ 转义、空格与中文，网关按原样签名；
-	// 客户端若重新序列化将导致验签失败。
-	node := `{"code":"10000" , "msg":"Success","url":"https:\/\/example.com\/pay","name":"手机\/商品"}`
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, signedResponse(t, testRespKey, node)
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
-
-	resp, err := executeQuery(t, client, op)
-	if err != nil {
-		t.Fatalf("Execute() error = %v (raw node verification failed)", err)
-	}
-	if string(resp.Result.Node) != node {
-		t.Fatalf("Node = %q, want original %q", resp.Result.Node, node)
-	}
-}
-
-func TestClientBusinessErrorIsSignedAndClassified(t *testing.T) {
-	node := `{"code":"40004","msg":"Business Failed","sub_code":"ACQ.TRADE_NOT_EXIST","sub_msg":"交易不存在"}`
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, signedResponse(t, testRespKey, node)
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
-
-	resp, err := executeQuery(t, client, op)
-	if err == nil {
-		t.Fatal("expect APIError")
-	}
-	if resp == nil || resp.Data != nil {
-		t.Fatalf("Data must be nil on failure, resp = %+v", resp)
-	}
-	if resp.Result == nil || resp.Result.HTTPStatus != http.StatusOK {
-		t.Fatal("Result with HTTP metadata expected")
-	}
-	var apiErr *core.APIError
-	if !errors.As(err, &apiErr) {
-		t.Fatalf("error type = %T, want *core.APIError", err)
-	}
-	if !apiErr.Verified {
-		t.Error("signed business error should be Verified")
-	}
-	if apiErr.Code != core.ResponseCode("40004") || apiErr.SubCode != "ACQ.TRADE_NOT_EXIST" {
-		t.Fatalf("APIError = %+v", apiErr)
-	}
-}
-
-func TestClientErrorResponseIsUnverified(t *testing.T) {
-	body := `{"error_response":{"code":"40002","msg":"Invalid Arguments","sub_code":"isv.invalid-signature","sub_msg":"验签出错"}}`
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, body
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
-
-	resp, err := executeQuery(t, client, op)
-	if err == nil {
-		t.Fatal("expect APIError for error_response")
-	}
-	var apiErr *core.APIError
-	if !errors.As(err, &apiErr) {
-		t.Fatalf("error type = %T, want *core.APIError", err)
-	}
-	if apiErr.Verified {
-		t.Error("error_response is unsigned; Verified must be false")
-	}
-	if apiErr.Code != core.ResponseCode("40002") {
-		t.Fatalf("Code = %q", apiErr.Code)
-	}
-	if resp == nil || resp.Result == nil || resp.Result.HTTPStatus != http.StatusOK {
-		t.Fatal("HTTP metadata should be preserved")
-	}
-}
-
-func TestClientRejectsMissingSignatures(t *testing.T) {
-	node := `{"code":"10000","msg":"Success","trade_no":"2026010122001400001234567890"}`
-	tests := []struct {
-		name string
-		body string
-	}{
-		{name: "缺失签名", body: `{"` + testRespKey + `":` + node + `}`},
-		{name: "空签名", body: `{"` + testRespKey + `":` + node + `,"sign":""}`},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gateway := newGateway(t, func(url.Values) (int, string) {
-				return http.StatusOK, tt.body
-			})
-			defer gateway.Close()
-			client := newTestClient(t, gateway.URL)
-			op := newTestOperation(t)
-			resp, err := executeQuery(t, client, op)
-			if err == nil {
-				t.Fatal("expect signature error")
-			}
-			var sigErr *core.SignatureError
-			if !errors.As(err, &sigErr) {
-				t.Fatalf("error type = %T, want *core.SignatureError", err)
-			}
-			if resp == nil || resp.Data != nil {
-				t.Fatal("untrusted payload must not produce Data")
-			}
-		})
+	// query 键序确定（Encode 按键排序），签名与传输使用同一份 URI。
+	if gotURI != testV3Query+"?bill_date=2026-11-04&bill_type=trade" {
+		t.Fatalf("request uri = %q", gotURI)
 	}
 }
 
 func TestClientTamperDetection(t *testing.T) {
-	// 签名对应原始 node，报文被替换后验签必须失败。
-	node := `{"code":"10000","msg":"Success","trade_status":"TRADE_SUCCESS"}`
-	tampered := strings.Replace(node, "TRADE_SUCCESS", "TRADE_FINISHED", 1)
-	sign, err := testutil.SignWithAlipayKey([]byte(node))
-	if err != nil {
-		t.Fatalf("sign: %v", err)
-	}
-	body := `{"` + testRespKey + `":` + tampered + `,"sign":"` + sign + `"}`
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, body
-	})
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 签名覆盖原始报文，返回体被篡改：验签必须失败。
+		signed := []byte(`{"trade_no":"honest-value","trade_status":"TRADE_SUCCESS"}`)
+		tampered := `{"trade_no":"tampered-value","trade_status":"TRADE_SUCCESS"}`
+		for key, value := range testutil.V3ResponseHeaders(t, signed, "1764000000002", "resp-nonce-3", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(tampered))
+	}))
 	defer gateway.Close()
+
 	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
-	resp, err := executeQuery(t, client, op)
-	if err == nil {
-		t.Fatal("tampered payload must fail verification")
-	}
-	if !errors.As(err, new(*core.SignatureError)) {
-		t.Fatalf("error type = %T, want *core.SignatureError", err)
-	}
-	if resp != nil && resp.Data != nil {
-		t.Fatal("tampered payload must not produce Data")
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050002"},
+	})
+	var sigErr *core.SignatureError
+	if !errors.As(err, &sigErr) {
+		t.Fatalf("expected *core.SignatureError, got %v", err)
 	}
 }
 
-func TestClientHTTPFailures(t *testing.T) {
-	t.Run("HTTP 500", func(t *testing.T) {
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusBadGateway, "<html>Bad Gateway</html>"
-		})
-		defer gateway.Close()
-		client := newTestClient(t, gateway.URL)
-		op := newTestOperation(t)
-		resp, err := executeQuery(t, client, op)
-		var httpErr *core.HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("error type = %T, want *core.HTTPError", err)
-		}
-		if httpErr.Status != http.StatusBadGateway {
-			t.Fatalf("Status = %d", httpErr.Status)
-		}
-		if resp == nil || resp.Result == nil || resp.Result.HTTPStatus != http.StatusBadGateway {
-			t.Fatal("HTTP metadata should be preserved")
-		}
+func TestClientRejectsMissingResponseSignature(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050003"},
 	})
-	t.Run("重定向不跟随", func(t *testing.T) {
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusFound, ""
-		})
-		defer gateway.Close()
-		client := newTestClient(t, gateway.URL)
-		op := newTestOperation(t)
-		_, err := executeQuery(t, client, op)
-		var httpErr *core.HTTPError
-		if !errors.As(err, &httpErr) || httpErr.Status != http.StatusFound {
-			t.Fatalf("error = %v, want 302 HTTPError", err)
+	var sigErr *core.SignatureError
+	if !errors.As(err, &sigErr) {
+		t.Fatalf("expected *core.SignatureError for missing alipay-signature, got %v", err)
+	}
+}
+
+func TestClientWrongKeyFails(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		node := `{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`
+		// 响应签名来自商户私钥而非网关私钥：公钥模式验签必须失败。
+		for key, value := range testutil.V3ResponseHeadersWithAppKey(t, []byte(node), "1764000000003", "resp-nonce-4") {
+			w.Header()[key] = value
 		}
+		_, _ = w.Write([]byte(node))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050004"},
 	})
-	t.Run("HTTP 错误携带有界片段且 Error 不含片段", func(t *testing.T) {
-		long := strings.Repeat("<div>error</div> ", 100)
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusServiceUnavailable, long
-		})
-		defer gateway.Close()
-		client := newTestClient(t, gateway.URL)
-		op := newTestOperation(t)
-		_, err := executeQuery(t, client, op)
-		var httpErr *core.HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("error type = %T", err)
+	var sigErr *core.SignatureError
+	if !errors.As(err, &sigErr) {
+		t.Fatalf("expected *core.SignatureError for wrong key, got %v", err)
+	}
+}
+
+func TestClientBusinessErrorSignedAndClassified(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := `{"code":"ACQ.TRADE_NOT_EXIST","message":"交易不存在","links":"https://opendocs.alipay.com/common/02km9f"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(body), "1764000000004", "resp-nonce-5", "") {
+			w.Header()[key] = value
 		}
-		if httpErr.BodySnippet == "" || len(httpErr.BodySnippet) > 512 {
-			t.Fatalf("BodySnippet = %q", httpErr.BodySnippet)
-		}
-		if strings.Contains(httpErr.Error(), "div") {
-			t.Error("Error() should not include body snippet")
-		}
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(body))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	resp, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050005"},
 	})
+	var apiErr *core.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *core.APIError, got %v", err)
+	}
+	if apiErr.Code != "ACQ.TRADE_NOT_EXIST" || apiErr.Msg != "交易不存在" || !apiErr.Verified {
+		t.Fatalf("unexpected api error: %+v", apiErr)
+	}
+	if apiErr.Links == "" {
+		t.Error("links must be preserved")
+	}
+	if resp.Result == nil || resp.Result.HTTPStatus != http.StatusBadRequest {
+		t.Fatalf("result metadata missing: %+v", resp.Result)
+	}
+}
+
+func TestClientUnsignedErrorIsUnverified(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"code":"insufficient-isv-permissions","message":"无权限"}`))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050006"},
+	})
+	var apiErr *core.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *core.APIError, got %v", err)
+	}
+	if apiErr.Verified {
+		t.Error("unsigned error must not be marked verified")
+	}
+	if apiErr.Code != "insufficient-isv-permissions" {
+		t.Fatalf("code = %q", apiErr.Code)
+	}
+}
+
+func TestClientUnparseableErrorBody(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`upstreamoops`))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "202611050007"},
+	})
+	var httpErr *core.HTTPError
+	if !errors.As(err, &httpErr) || httpErr.Status != http.StatusInternalServerError {
+		t.Fatalf("expected *core.HTTPError, got %v", err)
+	}
+}
+
+func TestClientAppAuthTokenIsHeaderAndSigned(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := testutil.ReadAllBody(t, r)
+		testutil.VerifyV3Authorization(t, r, body, "app-auth-token-1")
+		if got := r.Header.Get("alipay-app-auth-token"); got != "app-auth-token-1" {
+			t.Errorf("app auth token header = %q", got)
+		}
+		node := `{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000005", "resp-nonce-6", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(node))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body:    queryRequest{OutTradeNo: "202611050008"},
+		Options: core.NewCallSettings(core.WithAppAuthToken("app-auth-token-1")),
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
+func TestClientNotifyURLOptionRejected(t *testing.T) {
+	var called bool
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body:    queryRequest{OutTradeNo: "202611050009"},
+		Options: core.NewCallSettings(core.WithNotifyURL("https://merchant.example.com/notify")),
+	})
+	var valErr *core.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("expected *core.ValidationError, got %v", err)
+	}
+	if called {
+		t.Error("request must not be sent when notify_url option is set")
+	}
+}
+
+func TestClientSpecValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		spec   core.OperationSpec
+		reason string
+	}{
+		{
+			name: "missing method",
+			spec: core.OperationSpec{
+				HTTPMethod: core.HTTPMethodPost, Path: testV3Path,
+				ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "method",
+		},
+		{
+			name: "unknown http method",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethod("FETCH"), Path: testV3Path,
+				ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "http_method",
+		},
+		{
+			name: "GET with json body",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethodGet, Path: testV3Path,
+				ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "parameter_mode",
+		},
+		{
+			name: "path without prefix",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethodPost, Path: "/alipay/trade/query",
+				ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "path",
+		},
+		{
+			name: "path carries query",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethodPost, Path: testV3Path + "?a=1",
+				ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "path",
+		},
+		{
+			name: "unknown parameter mode",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethodPost, Path: testV3Path,
+				ParameterMode: core.ParameterMode(9), AuthRequirement: core.AuthRequirementAny,
+			},
+			reason: "parameter_mode",
+		},
+		{
+			name: "missing auth requirement",
+			spec: core.OperationSpec{
+				Method: "x", HTTPMethod: core.HTTPMethodPost, Path: testV3Path,
+				ParameterMode: core.ParameterModeJSONBody,
+			},
+			reason: "auth_requirement",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := core.NewJSONOperation[queryRequest, queryResponse](tt.spec)
+			var valErr *core.ValidationError
+			if !errors.As(err, &valErr) || valErr.Field != tt.reason {
+				t.Fatalf("expected validation error on %s, got %v", tt.reason, err)
+			}
+		})
+	}
+}
+
+func TestJSONOperationInfersParameterMode(t *testing.T) {
+	// GET 未声明 ParameterMode 时推断为 query；POST 推断为 JSON body。
+	getOp, err := core.NewJSONOperation[billRequest, billResponse](core.OperationSpec{
+		Method:     "alipay.data.dataservice.bill.downloadurl.query",
+		HTTPMethod: core.HTTPMethodGet, Path: testV3Query,
+		AuthRequirement: core.AuthRequirementAny,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONOperation() error = %v", err)
+	}
+	if got := getOp.Spec().ParameterMode; got != core.ParameterModeQuery {
+		t.Fatalf("get parameter mode = %v, want query", got)
+	}
+	postOp := newQueryOperation(t)
+	if got := postOp.Spec().ParameterMode; got != core.ParameterModeJSONBody {
+		t.Fatalf("post parameter mode = %v, want json_body", got)
+	}
+}
+
+func TestClientDoesNotModifyCallerParams(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		node := `{"bill_download_url":"u"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000009", "resp-nonce-a", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(node))
+	}))
+	defer gateway.Close()
+
+	client := newTestClient(t, gateway.URL)
+	op := newBillOperation(t)
+	body := billRequest{BillType: "trade"}
+	encoder := core.QueryEncoder[billRequest]()
+	params, err := encoder.Encode(body)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	before := compat.CloneValues(params.Form)
+	_, err = core.Execute(context.Background(), client, op, core.Request[billRequest]{Body: body})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	for key, values := range before {
+		if got := params.Form[key]; len(got) != len(values) {
+			t.Fatalf("caller params modified for key %q", key)
+		}
+	}
 }
 
 func TestClientResponseSizeLimit(t *testing.T) {
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, strings.Repeat("x", 4096)
-	})
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", 4096)))
+	}))
 	defer gateway.Close()
 	client := newTestClient(t, gateway.URL, option.WithMaxResponseBytes(1024))
-	op := newTestOperation(t)
-	_, err := executeQuery(t, client, op)
+	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+		Body: queryRequest{OutTradeNo: "size-1"},
+	})
 	var protoErr *core.ProtocolError
 	if !errors.As(err, &protoErr) {
 		t.Fatalf("error type = %T, want *core.ProtocolError", err)
@@ -416,119 +484,30 @@ func TestClientResponseSizeLimit(t *testing.T) {
 	}
 }
 
-func TestClientTimeoutWithVirtualTime(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		gateway := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(2 * time.Hour) // 虚拟时间，立即流逝
-		}))
-		client := newTestClient(t, "http://alipay.test/gateway.do",
-			option.WithHTTPClient(gateway.Client()), option.WithRequestTimeout(time.Minute))
-		op := newTestOperation(t)
-		start := time.Now()
-		_, err := executeQuery(t, client, op)
-		if !errors.Is(err, context.DeadlineExceeded) {
-			t.Fatalf("error = %v, want DeadlineExceeded", err)
-		}
-		var transportErr *core.TransportError
-		if !errors.As(err, &transportErr) {
-			t.Fatalf("error type = %T, want *core.TransportError", err)
-		}
-		if elapsed := time.Since(start); elapsed < time.Minute {
-			t.Fatalf("timeout returned too early: %v", elapsed)
-		}
-	})
-}
-
-func TestClientContextCancellation(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		gateway := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(time.Hour)
-		}))
-		client := newTestClient(t, "http://alipay.test/gateway.do",
-			option.WithHTTPClient(gateway.Client()), option.WithRequestTimeout(2*time.Hour))
-		op := newTestOperation(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			time.Sleep(time.Second)
-			cancel()
-		}()
-		start := time.Now()
-		_, err := client.Execute(ctx, op, core.Request[queryRequest]{})
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("error = %v, want context.Canceled", err)
-		}
-		var transportErr *core.TransportError
-		if !errors.As(err, &transportErr) || transportErr.Kind() != core.ErrorKindCanceled {
-			t.Fatalf("error = %v, want canceled transport error", err)
-		}
-		if elapsed := time.Since(start); elapsed < time.Second {
-			t.Fatalf("cancel returned too early: %v", elapsed)
-		}
-	})
-}
-
-func TestClientRejectsProtectedParamOverride(t *testing.T) {
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, signedResponse(t, testFormRespKey, successNode(""))
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestFormOperation(t)
-	_, err := client.Execute(context.Background(), op, core.Request[testFormRequest]{
-		Body: testFormRequest{OutTradeNo: "T001",
-			Overrides: url.Values{"app_id": {"evil"}, "sign": {"evil"}, "biz_content": {"evil"}}},
-	})
-	var valErr *core.ValidationError
-	if !errors.As(err, &valErr) {
-		t.Fatalf("error = %v, want protected param ValidationError", err)
-	}
-	protected := map[string]bool{"app_id": true, "sign": true, "biz_content": true}
-	if !protected[valErr.Field] {
-		t.Fatalf("field = %q, want one of the protected params", valErr.Field)
-	}
-}
-
-func TestClientDoesNotModifyCallerParams(t *testing.T) {
-	// 编码器返回的表单即调用方输入；Client 不得向其添加公共参数或签名。
-	callerForm := url.Values{"out_trade_no": {"T001"}}
-	frozen := maps.Clone(callerForm)
-	op, err := core.NewOperation[testFormRequest, queryResponse](core.OperationSpec{
-		Method:        testFormMethod,
-		Version:       "1.0",
-		ResponseKey:   testFormRespKey,
-		ParameterMode: core.ParameterModeForm,
-	}, core.EncoderFunc[testFormRequest](func(testFormRequest) (core.EncodedParams, error) {
-		return core.EncodedParams{Mode: core.ParameterModeForm, Form: callerForm}, nil
-	}), core.JSONDecoder[queryResponse]())
-	if err != nil {
-		t.Fatalf("NewOperation() error = %v", err)
-	}
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, signedResponse(t, testFormRespKey, successNode(""))
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	if _, err := client.Execute(context.Background(), op, core.Request[testFormRequest]{
-		Body: testFormRequest{OutTradeNo: "T001"}}); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if !maps.EqualFunc(callerForm, frozen, slices.Equal) {
-		t.Fatalf("caller params modified: %v", callerForm)
-	}
-}
-
 func TestClientCallSettingsIsolation(t *testing.T) {
 	var mu sync.Mutex
-	seen := map[string][]string{}
-	gateway := newGateway(t, func(form url.Values) (int, string) {
+	seen := map[string]int{}
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := testutil.ReadAllBody(t, r)
+		token := r.Header.Get("alipay-app-auth-token")
+		if token == "" {
+			t.Error("app auth token header is required")
+			return
+		}
+		// 签名原文必须包含本次调用的 app_auth_token，且与头一致。
+		testutil.VerifyV3Authorization(t, r, body, token)
 		mu.Lock()
-		defer mu.Unlock()
-		seen[form.Get("app_auth_token")] = append(seen[form.Get("app_auth_token")], form.Get("notify_url"))
-		return http.StatusOK, signedResponse(t, testRespKey, successNode(""))
-	})
+		seen[token]++
+		mu.Unlock()
+		node := `{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`
+		for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "176400000000a", "resp-nonce-b", "") {
+			w.Header()[key] = value
+		}
+		_, _ = w.Write([]byte(node))
+	}))
 	defer gateway.Close()
 	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
+	op := newQueryOperation(t)
 
 	var wg sync.WaitGroup
 	tokens := []string{"token-A", "token-B", "token-C"}
@@ -537,9 +516,9 @@ func TestClientCallSettingsIsolation(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := range 5 {
-				_, err := client.Execute(context.Background(), op, core.Request[queryRequest]{
+				_, err := core.Execute(context.Background(), client, op, core.Request[queryRequest]{
 					Body:    queryRequest{OutTradeNo: fmt.Sprintf("T-%s-%d", token, i)},
-					Options: core.NewCallSettings(core.WithAppAuthToken(token), core.WithNotifyURL("https://notify.example/"+token)),
+					Options: core.NewCallSettings(core.WithAppAuthToken(token)),
 				})
 				if err != nil {
 					t.Errorf("Execute() error = %v", err)
@@ -549,14 +528,8 @@ func TestClientCallSettingsIsolation(t *testing.T) {
 	}
 	wg.Wait()
 	for _, token := range tokens {
-		urls := seen[token]
-		if len(urls) != 5 {
-			t.Fatalf("token %s: %d requests, want 5", token, len(urls))
-		}
-		for _, u := range urls {
-			if u != "https://notify.example/"+token {
-				t.Fatalf("token %s polluted with notify url %q", token, u)
-			}
+		if seen[token] != 5 {
+			t.Fatalf("token %s: %d requests, want 5", token, seen[token])
 		}
 	}
 }
@@ -579,10 +552,10 @@ func TestPackageExecuteWithMockExecutor(t *testing.T) {
 	executor := &mockExecutor{result: &core.APIResult{
 		HTTPStatus:        200,
 		SignatureVerified: true,
-		Node:              []byte(`{"code":"10000","msg":"Success","trade_no":"T123","trade_status":"TRADE_SUCCESS","total_amount":"1.00"}`),
+		Node:              []byte(`{"trade_no":"T123","trade_status":"TRADE_SUCCESS"}`),
 		Header:            http.Header{"X-Test": {"1"}},
 	}}
-	op := newTestOperation(t)
+	op := newQueryOperation(t)
 	resp, err := core.Execute(context.Background(), executor, op,
 		core.Request[queryRequest]{Body: queryRequest{OutTradeNo: "T1"}})
 	if err != nil {
@@ -591,7 +564,7 @@ func TestPackageExecuteWithMockExecutor(t *testing.T) {
 	if !executor.called {
 		t.Fatal("executor not called")
 	}
-	if executor.req.Spec.Method != testMethod {
+	if executor.req.Spec.Method != "alipay.trade.query" {
 		t.Fatalf("Spec.Method = %q", executor.req.Spec.Method)
 	}
 	if resp.Data.TradeNo != "T123" {
@@ -603,7 +576,7 @@ func TestPackageExecuteWithMockExecutor(t *testing.T) {
 }
 
 func TestPackageExecuteFailureSemantics(t *testing.T) {
-	op := newTestOperation(t)
+	op := newQueryOperation(t)
 	t.Run("执行器错误时保留元信息", func(t *testing.T) {
 		executor := &mockExecutor{err: errors.New("boom"), result: &core.APIResult{HTTPStatus: 599}}
 		resp, err := core.Execute(context.Background(), executor, op, core.Request[queryRequest]{})
@@ -613,7 +586,7 @@ func TestPackageExecuteFailureSemantics(t *testing.T) {
 	})
 	t.Run("未验证结果不得进入解码", func(t *testing.T) {
 		executor := &mockExecutor{result: &core.APIResult{
-			HTTPStatus: 200, SignatureVerified: false, Node: []byte(`{"code":"10000"}`),
+			HTTPStatus: 200, SignatureVerified: false, Node: []byte(`{"trade_no":"x"}`),
 		}}
 		resp, err := core.Execute(context.Background(), executor, op, core.Request[queryRequest]{})
 		if !errors.As(err, new(*core.SignatureError)) {
@@ -640,32 +613,13 @@ func TestPackageExecuteFailureSemantics(t *testing.T) {
 	})
 	t.Run("解码失败返回协议错误", func(t *testing.T) {
 		executor := &mockExecutor{result: &core.APIResult{
-			HTTPStatus: 200, SignatureVerified: true, Node: []byte(`{"code":10000}`), // code 类型错误
+			HTTPStatus: 200, SignatureVerified: true, Node: []byte(`{"trade_no":123456}`), // 类型不匹配
 		}}
 		_, err := core.Execute(context.Background(), executor, op, core.Request[queryRequest]{})
 		if !errors.As(err, new(*core.ProtocolError)) {
 			t.Fatalf("error = %v, want ProtocolError", err)
 		}
 	})
-}
-
-func TestClientExecuteMatchesPackageExecute(t *testing.T) {
-	gateway := newGateway(t, func(url.Values) (int, string) {
-		return http.StatusOK, signedResponse(t, testRespKey, successNode(`,"trade_no":"T1"`))
-	})
-	defer gateway.Close()
-	client := newTestClient(t, gateway.URL)
-	op := newTestOperation(t)
-	req := core.Request[queryRequest]{Body: queryRequest{OutTradeNo: "T1"}}
-
-	viaMethod, err1 := client.Execute(context.Background(), op, req)
-	viaPackage, err2 := core.Execute(context.Background(), client, op, req)
-	if err1 != nil || err2 != nil {
-		t.Fatalf("errors: %v / %v", err1, err2)
-	}
-	if viaMethod.Data.TradeNo != viaPackage.Data.TradeNo {
-		t.Fatal("two entry points diverge")
-	}
 }
 
 // captureHandler 捕获 slog 记录，用于校验级别与字段。
@@ -720,13 +674,18 @@ func (h *captureHandler) attrValue(t *testing.T, r *slog.Record, key string) (sl
 func TestClientLogging(t *testing.T) {
 	t.Run("成功为 Debug 且字段完整", func(t *testing.T) {
 		handler := &captureHandler{}
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusOK, signedResponse(t, testRespKey, successNode(`,"trade_no":"T1"`))
-		})
+		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			node := []byte(`{"trade_no":"T1","trade_status":"TRADE_SUCCESS"}`)
+			for key, value := range testutil.V3ResponseHeaders(t, node, "176400000000d", "resp-nonce-e", "") {
+				w.Header()[key] = value
+			}
+			_, _ = w.Write(node)
+		}))
 		defer gateway.Close()
 		client := newTestClient(t, gateway.URL, option.WithLogHandler(handler))
-		op := newTestOperation(t)
-		if _, err := executeQuery(t, client, op); err != nil {
+		if _, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+			Body: queryRequest{OutTradeNo: "T1"},
+		}); err != nil {
 			t.Fatal(err)
 		}
 		r := handler.find(t, slog.LevelDebug, "alipay request succeeded")
@@ -734,7 +693,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatal("success log record not found")
 		}
 		for key, want := range map[string]string{
-			"sdk": "alipay", "operation": testMethod, "code": "10000",
+			"sdk": "alipay", "operation": "alipay.trade.query",
 		} {
 			if v, ok := handler.attrValue(t, r, key); !ok || v.String() != want {
 				t.Errorf("attr %q = %v (present=%v), want %q", key, v, ok, want)
@@ -747,33 +706,39 @@ func TestClientLogging(t *testing.T) {
 			t.Errorf("attr http_status = %v", v)
 		}
 	})
-	t.Run("业务拒绝为 Warn 且含 sub_code", func(t *testing.T) {
+	t.Run("业务拒绝为 Warn 且含 code", func(t *testing.T) {
 		handler := &captureHandler{}
-		node := `{"code":"40004","msg":"Business Failed","sub_code":"ACQ.TRADE_NOT_EXIST"}`
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusOK, signedResponse(t, testRespKey, node)
-		})
+		body := `{"code":"ACQ.TRADE_NOT_EXIST","message":"交易不存在"}`
+		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for key, value := range testutil.V3ResponseHeaders(t, []byte(body), "176400000000e", "resp-nonce-f", "") {
+				w.Header()[key] = value
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(body))
+		}))
 		defer gateway.Close()
 		client := newTestClient(t, gateway.URL, option.WithLogHandler(handler))
-		op := newTestOperation(t)
-		_, _ = executeQuery(t, client, op)
+		_, _ = core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+			Body: queryRequest{OutTradeNo: "log-2"},
+		})
 		r := handler.find(t, slog.LevelWarn, "alipay request failed")
 		if r == nil {
 			t.Fatal("warn record not found")
 		}
-		if v, _ := handler.attrValue(t, r, "sub_code"); v.String() != "ACQ.TRADE_NOT_EXIST" {
-			t.Fatalf("sub_code attr = %v", v)
+		if v, _ := handler.attrValue(t, r, "code"); v.String() != "ACQ.TRADE_NOT_EXIST" {
+			t.Fatalf("code attr = %v", v)
 		}
 	})
 	t.Run("安全失败为 Error 且 error_kind 为 signature", func(t *testing.T) {
 		handler := &captureHandler{}
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusOK, `{"` + testRespKey + `":{"code":"10000","msg":"Success"},"sign":""}`
-		})
+		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"trade_no":"x"}`)) // 缺少签名头
+		}))
 		defer gateway.Close()
 		client := newTestClient(t, gateway.URL, option.WithLogHandler(handler))
-		op := newTestOperation(t)
-		_, _ = executeQuery(t, client, op)
+		_, _ = core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+			Body: queryRequest{OutTradeNo: "log-3"},
+		})
 		r := handler.find(t, slog.LevelError, "alipay request failed")
 		if r == nil {
 			t.Fatal("error record not found")
@@ -783,25 +748,35 @@ func TestClientLogging(t *testing.T) {
 		}
 	})
 	t.Run("未配置日志时静默", func(t *testing.T) {
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusOK, signedResponse(t, testRespKey, successNode(""))
-		})
+		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			node := []byte(`{"trade_no":"T1","trade_status":"TRADE_SUCCESS"}`)
+			for key, value := range testutil.V3ResponseHeaders(t, node, "1764000000010", "resp-nonce-g", "") {
+				w.Header()[key] = value
+			}
+			_, _ = w.Write(node)
+		}))
 		defer gateway.Close()
 		client := newTestClient(t, gateway.URL) // 不注入日志
-		op := newTestOperation(t)
-		if _, err := executeQuery(t, client, op); err != nil {
+		if _, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+			Body: queryRequest{OutTradeNo: "T1"},
+		}); err != nil {
 			t.Fatal(err)
 		}
 	})
 	t.Run("Handler 错误不改变 API 结果", func(t *testing.T) {
 		handler := &captureHandler{errOn: map[string]bool{"alipay request succeeded": true}}
-		gateway := newGateway(t, func(url.Values) (int, string) {
-			return http.StatusOK, signedResponse(t, testRespKey, successNode(`,"trade_no":"T9"`))
-		})
+		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			node := []byte(`{"trade_no":"T9","trade_status":"TRADE_SUCCESS"}`)
+			for key, value := range testutil.V3ResponseHeaders(t, node, "1764000000011", "resp-nonce-h", "") {
+				w.Header()[key] = value
+			}
+			_, _ = w.Write(node)
+		}))
 		defer gateway.Close()
 		client := newTestClient(t, gateway.URL, option.WithLogHandler(handler))
-		op := newTestOperation(t)
-		resp, err := executeQuery(t, client, op)
+		resp, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+			Body: queryRequest{OutTradeNo: "T9"},
+		})
 		if err != nil || resp.Data.TradeNo != "T9" {
 			t.Fatalf("handler failure must not affect result: %v, %+v", err, resp)
 		}

@@ -1,0 +1,58 @@
+# applyorder 接口
+
+导入路径：`github.com/tiyee/alipay-sdk-go/services/offline/market/applyorder`。本包提供 1 个支付宝 V3 REST 操作。
+
+通过 `applyorder.NewService(executor)` 复用 `*core.Client` 或最小 `core.Executor`。网络调用以 `context.Context` 为首参数，支持 `opts ...core.CallOption`，业务数据位于 `resp.Data`。
+
+接口方法按单词边界使用大驼峰命名；请求、响应与专属模型位于对应业务包，共享模型从共同父包引用。
+
+接入方式见[项目说明](../../../../README.md)。默认测试离线执行。
+
+返回[领域目录](../../README.md)。
+
+## 接口目录
+
+| SDK 方法 | 官方接口 |
+| --- | --- |
+| [`MarketApplyOrderBatchQuery`](#api-marketapplyorderbatchquery) | `alipay.offline.market.applyorder.batchquery` |
+
+## 使用示例
+
+- [MarketApplyOrderBatchQuery](api_applyorder_marketapplyorderbatchquery_example_test.go)
+
+## 参数约定与注意事项
+
+- 参数表依据 2026-09-23 版 OpenAPI 快照与当前 SDK 模型整理。描述文件的获取方式见支付宝开放平台的[SDK 与工具](https://opendocs.alipay.com/open-v3/065bsc)。
+- 参数表仅列出当前 SDK 公开的请求字段。“必填（快照）”为快照明确标记的结果；“未标注”不代表可选，“否”也不排除特定场景条件必填。互斥、二选一、产品限制及必填条件须结合参数说明与具体产品文档确认。
+- Go 指针用于表达未传值，`omitempty` 等标签仅控制编码；不能据此推断业务必填性。嵌套对象参数见文末，具名枚举链接指向源码定义。
+- 公共签名与响应验签由 Client 处理；代调用授权令牌按需使用 `core.WithAppAuthToken` 传入。REST 调用不接受 `core.WithNotifyURL`，接口自有的通知字段按请求结构体传递。
+- SDK 默认不自动重试。写操作超时后须按接口规则查询状态，并遵守业务请求号的幂等要求；HTTP 或调用成功仍需检查具体业务状态。金额按接口定义使用精确十进制字符串，避免用浮点数计算。
+- 产品开通权限、授权及认证模式按具体接口确认。当前仓库尚未完成真实沙箱验收；生成接口尚未逐项验证业务条件。
+
+## 接口说明与请求参数
+
+<a id="api-marketapplyorderbatchquery"></a>
+
+### MarketApplyOrderBatchQuery — 业务流水批量查询接口
+
+- 官方接口：[`alipay.offline.market.applyorder.batchquery`](https://opendocs.alipay.com/apis/05xk26)
+- 路由：`POST /v3/alipay/offline/market/applyorder/batchquery`
+- 请求类型：[OfflineMarketApplyOrderBatchQueryRequest](applyorder_request.go#L4)
+- 响应类型：[OfflineMarketApplyOrderBatchQueryResponse](applyorder_response.go#L4)
+
+通过该接口分页查询Leads、门店、商品相关操作流水信息
+
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `action` | `Action` | `*string` | JSON body | 未标注 | 操作动作 |
+| `apply_ids` | `ApplyIds` | `*[]string` | JSON body | 未标注 | 支付宝流水ID列表，最大不超过100个 |
+| `biz_id` | `BizId` | `*string` | JSON body | 未标注 | 业务主体ID。根据biz_type不同可能对应shop_id或item_id。 |
+| `biz_type` | `BizType` | `*string` | JSON body | 未标注 | 业务类型：SHOP-店铺，ITEM-商品。 |
+| `end_time` | `EndTime` | `*string` | JSON body | 未标注 | 查询的流水创建时间最后值。格式：yyyy-MM-dd HH:mm:ss |
+| `op_id` | `OpId` | `*string` | JSON body | 未标注 | 操作用户的支付账号id |
+| `op_role` | `OpRole` | `*string` | JSON body | 未标注 | 系统集成商统一传入ISV |
+| `page_no` | `PageNo` | `*int64` | JSON body | 未标注 | 页码，留空标示第一页，默认20个结果为一页 |
+| `page_size` | `PageSize` | `*int64` | JSON body | 未标注 | 每页记录数。默认20，最大100。 |
+| `request_ids` | `RequestIds` | `*[]string` | JSON body | 未标注 | 请求ID列表，最大不超过100个。<br> 注意：暂时不支持此字段查询。 |
+| `start_time` | `StartTime` | `*string` | JSON body | 未标注 | 查询的流水创建时间起始值，只能查询近3个月数据。格式：yyyy-MM-dd HH:mm:ss |
+| `status` | `Status` | `*string` | JSON body | 未标注 | 流水状态：INIT-初始，PROCESS-处理中，SUCCESS-成功，FAIL-失败。 |

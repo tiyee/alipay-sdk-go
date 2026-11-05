@@ -7,7 +7,7 @@ import (
 )
 
 // ErrorKind 标识 SDK 错误的稳定分类，供日志字段 error_kind 与监控使用。
-// 调用方应通过 errors.AsType[T] 匹配具体错误类型，ErrorKind 仅用于分类统计。
+// 调用方应通过 errors.As 匹配具体错误类型，ErrorKind 仅用于分类统计。
 type ErrorKind string
 
 const (
@@ -27,9 +27,7 @@ const (
 	ErrorKindSignature ErrorKind = "signature"
 	// ErrorKindCertificate 表示证书装载、匹配或选择失败。
 	ErrorKindCertificate ErrorKind = "certificate"
-	// ErrorKindDecrypt 表示内容解密失败。
-	ErrorKindDecrypt ErrorKind = "decrypt"
-	// ErrorKindAPI 表示支付宝网关返回的业务错误（含未验签的 error_response）。
+	// ErrorKindAPI 表示支付宝网关返回的业务错误（含未验签的错误响应）。
 	ErrorKindAPI ErrorKind = "api"
 )
 
@@ -43,12 +41,20 @@ type ConfigError struct {
 	Field string
 	// Reason 说明无效原因。
 	Reason string
+	// Err 是底层错误，可以为 nil。
+	Err error
 }
 
 // Error 实现 error 接口。
 func (e *ConfigError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("alipay: invalid config field %q: %s: %v", e.Field, e.Reason, e.Err)
+	}
 	return fmt.Sprintf("alipay: invalid config field %q: %s", e.Field, e.Reason)
 }
+
+// Unwrap 支持标准错误链。
+func (e *ConfigError) Unwrap() error { return e.Err }
 
 // Kind 实现 ErrorKinder。
 func (e *ConfigError) Kind() ErrorKind { return ErrorKindConfig }
@@ -59,12 +65,20 @@ type ValidationError struct {
 	Field string
 	// Reason 说明无效原因。
 	Reason string
+	// Err 是底层错误，可以为 nil。
+	Err error
 }
 
 // Error 实现 error 接口。
 func (e *ValidationError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("alipay: invalid request field %q: %s: %v", e.Field, e.Reason, e.Err)
+	}
 	return fmt.Sprintf("alipay: invalid request field %q: %s", e.Field, e.Reason)
 }
+
+// Unwrap 支持标准错误链。
+func (e *ValidationError) Unwrap() error { return e.Err }
 
 // Kind 实现 ErrorKinder。
 func (e *ValidationError) Kind() ErrorKind { return ErrorKindValidation }
@@ -80,7 +94,7 @@ type TransportError struct {
 
 // Error 实现 error 接口。
 func (e *TransportError) Error() string {
-	return fmt.Sprintf("alipay: transport %s: %v", e.Op, e.Err)
+	return fmt.Sprintf("alipay: transport %s failed", e.Op)
 }
 
 // Unwrap 支持标准错误链。
@@ -183,52 +197,32 @@ func (e *CertificateError) Unwrap() error { return e.Err }
 // Kind 实现 ErrorKinder。
 func (e *CertificateError) Kind() ErrorKind { return ErrorKindCertificate }
 
-// DecryptError 表示内容解密失败。
-type DecryptError struct {
-	// Reason 说明失败原因。
-	Reason string
-	// Err 是底层错误，可以为 nil。
-	Err error
-}
+// ErrorCode 是 V3 错误响应中的错误码原文，例如网关级
+// "invalid-signature" 或业务级 "ACQ.TRADE_NOT_EXIST"。
+type ErrorCode string
 
-// Error 实现 error 接口。
-func (e *DecryptError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("alipay: decrypt: %s: %v", e.Reason, e.Err)
-	}
-	return fmt.Sprintf("alipay: decrypt: %s", e.Reason)
-}
-
-// Unwrap 支持标准错误链。
-func (e *DecryptError) Unwrap() error { return e.Err }
-
-// Kind 实现 ErrorKinder。
-func (e *DecryptError) Kind() ErrorKind { return ErrorKindDecrypt }
+// String 实现 fmt.Stringer。
+func (c ErrorCode) String() string { return string(c) }
 
 // APIError 表示支付宝网关返回的业务错误。
 //
-// Verified 标识该响应是否通过了签名验证：业务节点验签后为 true；
-// error_response 属于未签名报文，其字段只能作为诊断信息，
+// Verified 标识该响应是否通过了签名验证：已验签的业务错误为 true；
+// 未带签名的 V3 错误响应属于未验签报文，其字段只能作为诊断信息，
 // 不能作为可信业务结果。
 type APIError struct {
-	// Code 是公共响应码，例如 40004。
-	Code ResponseCode
+	// Code 是 V3 错误响应中的错误码原文。
+	Code ErrorCode
 	// Msg 是平台返回的消息原文，可能包含业务自由文本。
 	Msg string
-	// SubCode 是接口级错误码，例如 ACQ.TRADE_NOT_EXIST；可能为空。
-	SubCode string
-	// SubMsg 是接口级错误描述；可能为空。
-	SubMsg string
+	// Links 是 V3 错误响应附带的官方解决方案链接；可能为空。
+	Links string
 	// Verified 标识响应是否通过验签。
 	Verified bool
 }
 
 // Error 实现 error 接口；仅输出码值，不输出平台自由文本，
-// Msg 与 SubMsg 通过字段显式访问。
+// Msg 通过字段显式访问。
 func (e *APIError) Error() string {
-	if e.SubCode != "" {
-		return fmt.Sprintf("alipay: api error code=%s sub_code=%s", e.Code, e.SubCode)
-	}
 	return fmt.Sprintf("alipay: api error code=%s", e.Code)
 }
 

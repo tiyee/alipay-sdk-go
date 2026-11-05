@@ -13,19 +13,26 @@ jobs:
     name: Go ${{ matrix.go-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        go-version: ["1.27.x"]
+        go-version: ['1.24.0', '1.24.x', '1.25.x', '1.26.x', '1.27.x', stable]
+    env:
+      GOTOOLCHAIN: local
+      ALIPAY_SANDBOX: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
+          cache-dependency-path: go.mod
       - name: Verify module language baseline
         run: |
           go mod verify
           go mod tidy -diff
+      # Older gofmt versions cannot parse generic methods in go1.27-tagged files.
       - name: Check formatting
+        if: matrix.go-version == 'stable'
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then

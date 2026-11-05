@@ -1,9 +1,7 @@
 package protocol
 
 import (
-	"encoding/json/jsontext"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -116,99 +114,5 @@ func TestIsProtectedParam(t *testing.T) {
 		if IsProtectedParam(key) {
 			t.Errorf("IsProtectedParam(%q) = true, want false", key)
 		}
-	}
-}
-
-func TestExtractRawResponse(t *testing.T) {
-	node := `{"code":"10000","msg":"Success","trade_no":"2026010122001400001"}`
-	body := `{"alipay_trade_query_response":` + node + `,"sign":"c2lnbmF0dXJlLXZhbHVl"}`
-	raw, err := ExtractRawResponse([]byte(body), "alipay_trade_query_response")
-	if err != nil {
-		t.Fatalf("ExtractRawResponse() error = %v", err)
-	}
-	if string(raw.Node) != node {
-		t.Fatalf("Node = %q, want original bytes %q", raw.Node, node)
-	}
-	if raw.Sign != "c2lnbmF0dXJlLXZhbHVl" {
-		t.Fatalf("Sign = %q", raw.Sign)
-	}
-	if raw.ErrorResponse != nil {
-		t.Fatalf("ErrorResponse = %v, want nil", raw.ErrorResponse)
-	}
-}
-
-func TestExtractRawResponsePreservesOriginalEncoding(t *testing.T) {
-	// \/ 转义与内部空格必须原样保留，重新序列化会导致验签失败。
-	node := `{"code":"10000" , "url":"https:\/\/example.com\/pay"}`
-	body := `{"alipay_trade_query_response":` + node + `,"sign":"x"}`
-	raw, err := ExtractRawResponse([]byte(body), "alipay_trade_query_response")
-	if err != nil {
-		t.Fatalf("ExtractRawResponse() error = %v", err)
-	}
-	if string(raw.Node) != node {
-		t.Fatalf("Node = %q, want %q", raw.Node, node)
-	}
-}
-
-func TestExtractRawResponseErrorResponse(t *testing.T) {
-	body := `{"error_response":{"code":"40002","msg":"Invalid Arguments","sub_code":"isv.invalid-signature"},"sign":null}`
-	raw, err := ExtractRawResponse([]byte(body), "alipay_trade_query_response")
-	if err != nil {
-		t.Fatalf("ExtractRawResponse() error = %v", err)
-	}
-	if raw.ErrorResponse == nil {
-		t.Fatal("ErrorResponse is nil, want parsed")
-	}
-	if !strings.Contains(string(raw.ErrorResponse), "isv.invalid-signature") {
-		t.Fatalf("ErrorResponse = %q", raw.ErrorResponse)
-	}
-	if raw.Node != nil {
-		t.Fatalf("Node = %q, want nil", raw.Node)
-	}
-}
-
-func TestExtractRawResponseErrors(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		key  string
-	}{
-		{name: "非对象顶层", body: `[1,2]`, key: "alipay_trade_query_response"},
-		{name: "节点缺失", body: `{"other":{"code":"10000"}}`, key: "alipay_trade_query_response"},
-		{name: "重复业务节点", body: `{"alipay_trade_query_response":{"code":"10000"},"alipay_trade_query_response":{"code":"10000"}}`, key: "alipay_trade_query_response"},
-		{name: "重复 sign", body: `{"alipay_trade_query_response":{"code":"10000"},"sign":"a","sign":"b"}`, key: "alipay_trade_query_response"},
-		{name: "尾部内容", body: `{"alipay_trade_query_response":{"code":"10000"}} garbage`, key: "alipay_trade_query_response"},
-		{name: "非法 JSON", body: `not-json`, key: "alipay_trade_query_response"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if _, err := ExtractRawResponse([]byte(tt.body), tt.key); err == nil {
-				t.Fatalf("ExtractRawResponse() expect error, got nil")
-			}
-		})
-	}
-}
-
-func TestParseGatewayErrorAndCode(t *testing.T) {
-	node := jsontext.Value(`{"code":"40004","msg":"Business Failed","sub_code":"ACQ.TRADE_NOT_EXIST","sub_msg":"交易不存在"}`)
-	gw, err := ParseGatewayError(node)
-	if err != nil {
-		t.Fatalf("ParseGatewayError() error = %v", err)
-	}
-	if gw.Code != "40004" || gw.SubCode != "ACQ.TRADE_NOT_EXIST" || gw.SubMsg != "交易不存在" {
-		t.Fatalf("gateway error = %+v", gw)
-	}
-	code, err := ParseResponseCode(node)
-	if err != nil || code != "40004" {
-		t.Fatalf("ParseResponseCode() = %q, %v", code, err)
-	}
-}
-
-func TestParseGatewayErrorMissingCode(t *testing.T) {
-	if _, err := ParseGatewayError(jsontext.Value(`{"msg":"no code"}`)); err == nil {
-		t.Fatal("expect error for missing code")
-	}
-	if _, err := ParseResponseCode(jsontext.Value(`{"msg":"no code"}`)); err == nil {
-		t.Fatal("expect error for missing code")
 	}
 }

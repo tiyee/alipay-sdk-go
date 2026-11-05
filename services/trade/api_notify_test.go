@@ -2,15 +2,17 @@ package trade_test
 
 import (
 	"context"
-	"errors"
+	"crypto/rsa"
 	"net/url"
 	"testing"
 
-	"github.com/tiyee/go-alipay/core"
-	"github.com/tiyee/go-alipay/core/auth/verifiers"
-	"github.com/tiyee/go-alipay/core/notify"
-	"github.com/tiyee/go-alipay/internal/testutil"
-	"github.com/tiyee/go-alipay/services/trade"
+	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/core/notify"
+	"github.com/tiyee/alipay-sdk-go/internal/compat"
+	"github.com/tiyee/alipay-sdk-go/internal/testutil"
+	"github.com/tiyee/alipay-sdk-go/services/trade"
+	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
 // 测试目标：通知模型严格映射官方《异步通知说明》参数表
@@ -197,7 +199,7 @@ func TestNotificationDecoderMissingRequired(t *testing.T) {
 			values := baseNotifyForm()
 			values.Del(name)
 			_, err := trade.NotificationDecoder().Decode(values)
-			valErr, ok := errors.AsType[*core.ValidationError](err)
+			valErr, ok := compat.AsType[*core.ValidationError](err)
 			if !ok || valErr.Field != name {
 				t.Fatalf("want validation error for %q, got %v", name, err)
 			}
@@ -215,7 +217,7 @@ func TestNotificationDecoderInvalidJSONList(t *testing.T) {
 			values := baseNotifyForm()
 			values.Set(tc.name, tc.raw)
 			_, err := trade.NotificationDecoder().Decode(values)
-			valErr, ok := errors.AsType[*core.ValidationError](err)
+			valErr, ok := compat.AsType[*core.ValidationError](err)
 			if !ok || valErr.Field != tc.name {
 				t.Fatalf("want validation error for %q, got %v", tc.name, err)
 			}
@@ -223,17 +225,16 @@ func TestNotificationDecoderInvalidJSONList(t *testing.T) {
 	}
 }
 
-// 端到端：网关侧签名 → core/notify 验签 → trade 领域映射。
+// 端到端：网关侧签名 → core/notify Handler 验签 → trade 领域映射。
+// 公钥与证书两种模式均复用同一 Handler 流程。
 func TestNotifyEndToEnd(t *testing.T) {
 	ctx := context.Background()
-	verifier := testutil.NewAlipayVerifier(t)
 	form := baseNotifyForm()
 	form.Set("subject", "测试 单据+&=A")
 	form.Set("fund_bill_list", `[{"amount":"15.00","fundChannel":"ALIPAYACCOUNT"}]`)
 	signed := testutil.SignNotify(t, form)
 
-	got, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier,
-		trade.NotificationDecoder(), signed)
+	got, err := notify.Parse(ctx, notifyHandler(t), signed, trade.NotificationDecoder())
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -245,22 +246,62 @@ func TestNotifyEndToEnd(t *testing.T) {
 	}
 
 	t.Run("tampered form fails", func(t *testing.T) {
-		tampered := signed.Clone()
+		tampered := compat.CloneValues(signed)
 		tampered.Set("total_amount", "0.01")
-		if _, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, verifier,
-			trade.NotificationDecoder(), tampered); err == nil {
+		if _, err := notify.Parse(ctx, notifyHandler(t), tampered, trade.NotificationDecoder()); err == nil {
 			t.Fatal("tampered notification must fail")
 		}
 	})
 
 	t.Run("wrong public key fails", func(t *testing.T) {
-		wrongVerifier, err := verifiers.NewRSA2(testutil.AppPublicKeyPEM)
+		wrongCredentials, err := auth.NewPublicKeyCredentials(auth.PublicKeyConfig{
+			AppSigner:       testutil.NewAppCryptoSigner(t),
+			AlipayPublicKey: appPublicKey(t),
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := notify.Parse(ctx, notify.PolicyTradeStatusSync, wrongVerifier,
-			trade.NotificationDecoder(), signed); err == nil {
+		wrongHandler, err := notify.NewHandler(wrongCredentials, notify.PolicyTradeStatusSync)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := notify.Parse(ctx, wrongHandler, signed, trade.NotificationDecoder()); err == nil {
 			t.Fatal("wrong public key must fail")
 		}
 	})
+
+	t.Run("certificate mode works via the same handler flow", func(t *testing.T) {
+		certHandler, err := notify.NewHandler(testutil.NewCertSuite(t).NewCertificateCredentials(t),
+			notify.PolicyTradeStatusSync)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := notify.Parse(ctx, certHandler, signed, trade.NotificationDecoder())
+		if err != nil {
+			t.Fatalf("certificate mode parse: %v", err)
+		}
+		if got.Data.OutTradeNo != "ORDER-20261105-001" || !got.Data.Paid() {
+			t.Fatalf("unexpected notification: %+v", *got.Data)
+		}
+	})
+}
+
+// notifyHandler 返回公钥模式的测试通知验证器。
+func notifyHandler(t *testing.T) *notify.Handler {
+	t.Helper()
+	handler, err := notify.NewHandler(testutil.NewCredentials(t), notify.PolicyTradeStatusSync)
+	if err != nil {
+		t.Fatalf("build notify handler: %v", err)
+	}
+	return handler
+}
+
+// appPublicKey 返回解析后的测试应用公钥。
+func appPublicKey(t *testing.T) *rsa.PublicKey {
+	t.Helper()
+	key, err := utils.ParsePublicKeyPKIX(utils.TrimKeyText(testutil.AppPublicKeyPEM))
+	if err != nil {
+		t.Fatalf("parse app public key: %v", err)
+	}
+	return key
 }

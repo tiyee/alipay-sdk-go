@@ -2,97 +2,172 @@ package trade
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"net/url"
 
-	"github.com/tiyee/go-alipay/core"
+	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
+	"github.com/tiyee/alipay-sdk-go/internal/tradevalidate"
 )
 
-// 传统网关接口名、版本与响应节点名，依据各接口官方文档固定。
-const (
-	methodQuery       = "alipay.trade.query"
-	methodPrecreate   = "alipay.trade.precreate"
-	methodRefund      = "alipay.trade.refund"
-	methodQueryRefund = "alipay.trade.fastpay.refund.query"
-	methodClose       = "alipay.trade.close"
-
-	version10 = "1.0"
-
-	respKeyQuery       = "alipay_trade_query_response"
-	respKeyPrecreate   = "alipay_trade_precreate_response"
-	respKeyRefund      = "alipay_trade_refund_response"
-	respKeyQueryRefund = "alipay_trade_fastpay_refund_query_response"
-	respKeyClose       = "alipay_trade_close_response"
-)
-
-// Service 是交易领域的 API 封装，通过注入 core.Executor（通常为
-// *core.Client）调用统一执行流程。Service 不实现 HTTP、签名或验签。
-// 零值不可用；通过 NewService 构建。
+// Service 封装同一业务组的支付宝 V3 接口，复用注入执行器的通信与鉴权能力。
+// 零值不可用；请通过 NewService 构建。
 type Service struct {
-	executor core.Executor
-
-	query       core.Operation[QueryRequest, QueryResponse]
-	precreate   core.Operation[PrecreateRequest, PrecreateResponse]
-	refund      core.Operation[RefundRequest, RefundResponse]
-	queryRefund core.Operation[QueryRefundRequest, QueryRefundResponse]
-	close       core.Operation[CloseRequest, CloseResponse]
+	executor  core.Executor
+	pay       core.Operation[PayRequest, PayResponse]
+	create    core.Operation[CreateRequest, CreateResponse]
+	cancel    core.Operation[CancelRequest, CancelResponse]
+	query     core.Operation[QueryRequest, QueryResponse]
+	precreate core.Operation[PreCreateRequest, PreCreateResponse]
+	close     core.Operation[CloseRequest, CloseResponse]
 }
 
-// NewService 基于执行器构建交易 Service。执行器为 nil 时返回错误。
+// NewService 使用共享的 V3 执行器构建 Service；executor 为 nil 时返回错误。
 func NewService(executor core.Executor) (*Service, error) {
 	if executor == nil {
 		return nil, &core.ValidationError{Field: "executor", Reason: "executor is required"}
 	}
+	pay, err := core.NewJSONOperation[PayRequest, PayResponse](core.OperationSpec{
+		Method: "alipay.trade.pay", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/pay",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+	})
+	if err != nil {
+		return nil, err
+	}
+	create, err := core.NewJSONOperation[CreateRequest, CreateResponse](core.OperationSpec{
+		Method: "alipay.trade.create", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/create",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+	})
+	if err != nil {
+		return nil, err
+	}
+	cancel, err := core.NewJSONOperation[CancelRequest, CancelResponse](core.OperationSpec{
+		Method: "alipay.trade.cancel", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/cancel",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
+	})
+	if err != nil {
+		return nil, err
+	}
 	query, err := core.NewJSONOperation[QueryRequest, QueryResponse](core.OperationSpec{
-		Method: methodQuery, Version: version10, ResponseKey: respKeyQuery,
-		ParameterMode: core.ParameterModeBizJSON,
+		Method: "alipay.trade.query", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/query",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
 	})
 	if err != nil {
 		return nil, err
 	}
-	precreate, err := core.NewJSONOperation[PrecreateRequest, PrecreateResponse](core.OperationSpec{
-		Method: methodPrecreate, Version: version10, ResponseKey: respKeyPrecreate,
-		ParameterMode: core.ParameterModeBizJSON,
+	precreate, err := core.NewJSONOperation[PreCreateRequest, PreCreateResponse](core.OperationSpec{
+		Method: "alipay.trade.precreate", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/precreate",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
 	})
 	if err != nil {
 		return nil, err
 	}
-	refund, err := core.NewJSONOperation[RefundRequest, RefundResponse](core.OperationSpec{
-		Method: methodRefund, Version: version10, ResponseKey: respKeyRefund,
-		ParameterMode: core.ParameterModeBizJSON,
-	})
-	if err != nil {
-		return nil, err
-	}
-	queryRefund, err := core.NewJSONOperation[QueryRefundRequest, QueryRefundResponse](core.OperationSpec{
-		Method: methodQueryRefund, Version: version10, ResponseKey: respKeyQueryRefund,
-		ParameterMode: core.ParameterModeBizJSON,
-	})
-	if err != nil {
-		return nil, err
-	}
-	closeOp, err := core.NewJSONOperation[CloseRequest, CloseResponse](core.OperationSpec{
-		Method: methodClose, Version: version10, ResponseKey: respKeyClose,
-		ParameterMode: core.ParameterModeBizJSON,
+	close, err := core.NewJSONOperation[CloseRequest, CloseResponse](core.OperationSpec{
+		Method: "alipay.trade.close", HTTPMethod: core.HTTPMethodPost, Path: "/v3/alipay/trade/close",
+		ParameterMode: core.ParameterModeJSONBody, AuthRequirement: core.AuthRequirementAny,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		executor:    executor,
-		query:       query,
-		precreate:   precreate,
-		refund:      refund,
-		queryRefund: queryRefund,
-		close:       closeOp,
+		executor:  executor,
+		pay:       pay,
+		create:    create,
+		cancel:    cancel,
+		query:     query,
+		precreate: precreate,
+		close:     close,
 	}, nil
 }
 
-// Query 调用 alipay.trade.query 查询交易状态。
+// NewPaymentProducts 基于凭证构建页面/唤端产物构建入口。
+// 构造过程不进行网络 I/O；配置不完整时返回 *core.ConfigError。
+func NewPaymentProducts(credentials auth.Credentials, opts ...core.ClientOption) (*PaymentProducts, error) {
+	builder, err := core.NewArtifactBuilder(credentials, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &PaymentProducts{builder: builder}, nil
+}
+
+// encodeArtifactParams 将 biz_content JSON 与 return_url 组装为
+// 产物业务参数。
+func encodeArtifactParams(biz any, returnURL *string) (url.Values, error) {
+	raw, err := json.Marshal(biz)
+	if err != nil {
+		return nil, fmt.Errorf("alipay: encode artifact biz_content: %w", err)
+	}
+	params := url.Values{}
+	params.Set("biz_content", string(raw))
+	if returnURL != nil && *returnURL != "" {
+		params.Set("return_url", *returnURL)
+	}
+	return params, nil
+}
+
+// validateGoodsDetail 校验商品明细的必填字段与金额格式。
+func validateGoodsDetail(goods GoodsDetail, index int) error {
+	if goods.GoodsID == "" || goods.GoodsName == "" || goods.Quantity <= 0 {
+		return &core.ValidationError{Field: "goods_detail",
+			Reason: fmt.Sprintf("goods_detail[%d] requires goods_id, goods_name and positive quantity", index)}
+	}
+	return tradevalidate.Amount(goods.Price, "goods_detail.price")
+}
+
+// Pay 调用 alipay.trade.pay 发起支付（V3 POST /v3/alipay/trade/pay）。
 //
-// 契约：https://opendocs.alipay.com/open/02ekfq.md。
-// 调用成功（code=10000）不代表支付成功，业务结果以响应中的
-// TradeStatus 为准；未生成真实交易时 TradeNo 与 BuyerLogonID 不返回。
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/08c7f9f8_alipay.trade.pay
+// 当面付条码/刷脸支付需传入 Scene 与 AuthCode；周期扣款场景经
+// AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
+// 最终状态以查询接口为准。
+func (s *Service) Pay(ctx context.Context, req PayRequest,
+	opts ...core.CallOption) (*core.Response[PayResponse], error) {
+	if err := req.validate(); err != nil {
+		return nil, err
+	}
+	return core.Execute(ctx, s.executor, s.pay,
+		core.Request[PayRequest]{Body: req, Options: core.NewCallSettings(opts...)})
+}
+
+// Create 调用 alipay.trade.create 创建交易订单
+// （V3 POST /v3/alipay/trade/create）。
+//
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/bf4eae5e_alipay.trade.create
+// 返回交易号仅表示订单创建成功；买家支付结果以异步通知或查询为准。
+func (s *Service) Create(ctx context.Context, req CreateRequest,
+	opts ...core.CallOption) (*core.Response[CreateResponse], error) {
+	if err := req.validate(); err != nil {
+		return nil, err
+	}
+	return core.Execute(ctx, s.executor, s.create,
+		core.Request[CreateRequest]{Body: req, Options: core.NewCallSettings(opts...)})
+}
+
+// Cancel 调用 alipay.trade.cancel 撤销交易
+// （V3 POST /v3/alipay/trade/cancel）。
+//
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/cd7d54d2_alipay.trade.cancel?scene=common&pathHash=cb83add6
+// 未支付交易触发关闭，已支付交易触发退款；RetryFlag=Y 表示需要重试。
+// 撤销是写操作，SDK 不自动重试。
+func (s *Service) Cancel(ctx context.Context, req CancelRequest,
+	opts ...core.CallOption) (*core.Response[CancelResponse], error) {
+	if err := req.validate(); err != nil {
+		return nil, err
+	}
+	return core.Execute(ctx, s.executor, s.cancel,
+		core.Request[CancelRequest]{Body: req, Options: core.NewCallSettings(opts...)})
+}
+
+// Query 调用 alipay.trade.query 查询交易状态（V3 POST /v3/alipay/trade/query）。
+//
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/d33bf036_alipay.trade.query
+// 请求成功不代表支付成功，业务结果以响应中的 TradeStatus 为准；
+// 未生成真实交易时 TradeNo 与 BuyerLogonID 不返回。
 func (s *Service) Query(ctx context.Context, req QueryRequest,
 	opts ...core.CallOption) (*core.Response[QueryResponse], error) {
 	if err := req.validate(); err != nil {
@@ -102,54 +177,27 @@ func (s *Service) Query(ctx context.Context, req QueryRequest,
 		core.Request[QueryRequest]{Body: req, Options: core.NewCallSettings(opts...)})
 }
 
-// Precreate 调用 alipay.trade.precreate 生成当面付扫码支付二维码。
+// PreCreate 调用 alipay.trade.precreate 生成当面付扫码支付二维码
+// （V3 POST /v3/alipay/trade/precreate）。
 //
-// 契约：https://opendocs.alipay.com/open/02np92。
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/fa0c2141_alipay.trade.precreate
 // 二维码有效时间固定 2 小时；同一订单号不能重复申请二维码；
 // qr_code 缺失时按业务响应处理，不代表预下单失败或成功。
-func (s *Service) Precreate(ctx context.Context, req PrecreateRequest,
-	opts ...core.CallOption) (*core.Response[PrecreateResponse], error) {
+func (s *Service) PreCreate(ctx context.Context, req PreCreateRequest,
+	opts ...core.CallOption) (*core.Response[PreCreateResponse], error) {
 	if err := req.validate(); err != nil {
 		return nil, err
 	}
 	return core.Execute(ctx, s.executor, s.precreate,
-		core.Request[PrecreateRequest]{Body: req, Options: core.NewCallSettings(opts...)})
+		core.Request[PreCreateRequest]{Body: req, Options: core.NewCallSettings(opts...)})
 }
 
-// Refund 调用 alipay.trade.refund 发起交易退款。
+// Close 调用 alipay.trade.close 关闭未付款交易
+// （V3 POST /v3/alipay/trade/close）。
 //
-// 契约：https://opendocs.alipay.com/open/02ekfs.md。
-// code=10000 仅代表退款请求成功：FundChange=Y 表示退款成功，
-// N 或未返回时需通过 QueryRefund 进一步确认。
-// 重试必须保持 OutRequestNo 与 RefundAmount 不变，防止重复退款；
-// SDK 不自动重试退款。
-func (s *Service) Refund(ctx context.Context, req RefundRequest,
-	opts ...core.CallOption) (*core.Response[RefundResponse], error) {
-	if err := req.validate(); err != nil {
-		return nil, err
-	}
-	return core.Execute(ctx, s.executor, s.refund,
-		core.Request[RefundRequest]{Body: req, Options: core.NewCallSettings(opts...)})
-}
-
-// QueryRefund 调用 alipay.trade.fastpay.refund.query 查询退款结果。
-//
-// 契约：https://opendocs.alipay.com/open/02ekft.md。
-// code=10000 仅代表查询操作成功；仅当响应中 RefundStatus 为
-// REFUND_SUCCESS 时表示退款成功，字段未返回表示退款请求未收到
-// 或退款失败。官方建议退款发起后间隔 10 秒以上再查询。
-func (s *Service) QueryRefund(ctx context.Context, req QueryRefundRequest,
-	opts ...core.CallOption) (*core.Response[QueryRefundResponse], error) {
-	if err := req.validate(); err != nil {
-		return nil, err
-	}
-	return core.Execute(ctx, s.executor, s.queryRefund,
-		core.Request[QueryRefundRequest]{Body: req, Options: core.NewCallSettings(opts...)})
-}
-
-// Close 调用 alipay.trade.close 关闭未付款交易。
-//
-// 契约：https://opendocs.alipay.com/open/02ivbu.md。
+// 契约：官方 V3 文档
+// https://opendocs.alipay.com/open-v3/48ea518b_alipay.trade.close?scene=common&pathHash=2c6cdbea
 // 仅"等待买家付款"状态的交易可关单；SDK 不依据本地状态自动发起关单。
 func (s *Service) Close(ctx context.Context, req CloseRequest,
 	opts ...core.CallOption) (*core.Response[CloseResponse], error) {
@@ -158,109 +206,4 @@ func (s *Service) Close(ctx context.Context, req CloseRequest,
 	}
 	return core.Execute(ctx, s.executor, s.close,
 		core.Request[CloseRequest]{Body: req, Options: core.NewCallSettings(opts...)})
-}
-
-// tradeIdentifier 校验 trade_no / out_trade_no 二选一约束：
-// 不能同时为空；文档注明同时存在时网关优先使用 trade_no。
-func tradeIdentifier(tradeNo, outTradeNo, field string) error {
-	if tradeNo == "" && outTradeNo == "" {
-		return &core.ValidationError{Field: field,
-			Reason: "trade_no and out_trade_no cannot both be empty"}
-	}
-	return nil
-}
-
-func (r QueryRequest) validate() error {
-	return tradeIdentifier(r.TradeNo, r.OutTradeNo, "out_trade_no")
-}
-
-func (r QueryRefundRequest) validate() error {
-	if r.OutRequestNo == "" {
-		return &core.ValidationError{Field: "out_request_no", Reason: "out_request_no is required"}
-	}
-	return tradeIdentifier(r.TradeNo, r.OutTradeNo, "out_trade_no")
-}
-
-func (r CloseRequest) validate() error {
-	return tradeIdentifier(r.TradeNo, r.OutTradeNo, "out_trade_no")
-}
-
-func (r RefundRequest) validate() error {
-	if err := validAmount(r.RefundAmount, "refund_amount"); err != nil {
-		return err
-	}
-	return tradeIdentifier(r.TradeNo, r.OutTradeNo, "out_trade_no")
-}
-
-func (r PrecreateRequest) validate() error {
-	if r.OutTradeNo == "" {
-		return &core.ValidationError{Field: "out_trade_no", Reason: "out_trade_no is required"}
-	}
-	for _, ch := range r.OutTradeNo {
-		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '_') {
-			return &core.ValidationError{Field: "out_trade_no",
-				Reason: "out_trade_no only supports letters, digits and underscore"}
-		}
-	}
-	if err := validAmount(r.TotalAmount, "total_amount"); err != nil {
-		return err
-	}
-	if r.Subject == "" {
-		return &core.ValidationError{Field: "subject", Reason: "subject is required"}
-	}
-	if strings.ContainsAny(r.Subject, "/=&") {
-		return &core.ValidationError{Field: "subject",
-			Reason: `subject must not contain "/", "=" or "&"`}
-	}
-	if r.DiscountableAmount != nil {
-		if err := validAmount(*r.DiscountableAmount, "discountable_amount"); err != nil {
-			return err
-		}
-	}
-	if r.UndiscountableAmount != nil {
-		if err := validAmount(*r.UndiscountableAmount, "undiscountable_amount"); err != nil {
-			return err
-		}
-	}
-	for i, goods := range r.GoodsDetail {
-		if goods.GoodsID == "" || goods.GoodsName == "" || goods.Quantity <= 0 {
-			return &core.ValidationError{Field: "goods_detail",
-				Reason: fmt.Sprintf("goods_detail[%d] requires goods_id, goods_name and positive quantity", i)}
-		}
-		if err := validAmount(goods.Price, "goods_detail.price"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// validAmount 校验金额为精确的十进制字符串：非负、至多两位小数、
-// 至少含一个非零数字。金额不得使用浮点数建模或计算。
-func validAmount(amount, field string) error {
-	if amount == "" {
-		return &core.ValidationError{Field: field, Reason: "amount is required"}
-	}
-	intPart, fracPart, found := strings.Cut(amount, ".")
-	if intPart == "" && fracPart == "" {
-		return &core.ValidationError{Field: field, Reason: "amount is not a decimal string"}
-	}
-	if len(intPart) > 1 && intPart[0] == '0' {
-		return &core.ValidationError{Field: field, Reason: "amount has leading zeros"}
-	}
-	for _, part := range [2]string{intPart, fracPart} {
-		for _, ch := range part {
-			if ch < '0' || ch > '9' {
-				return &core.ValidationError{Field: field, Reason: "amount is not a decimal string"}
-			}
-		}
-	}
-	if found && len(fracPart) > 2 {
-		return &core.ValidationError{Field: field, Reason: "amount supports at most two decimal places"}
-	}
-	nonZero := strings.ContainsFunc(intPart, func(ch rune) bool { return ch != '0' }) ||
-		strings.ContainsFunc(fracPart, func(ch rune) bool { return ch != '0' })
-	if !nonZero {
-		return &core.ValidationError{Field: field, Reason: "amount must be greater than zero"}
-	}
-	return nil
 }
