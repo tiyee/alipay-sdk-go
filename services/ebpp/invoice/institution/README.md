@@ -226,13 +226,13 @@
 
 制度分页查询，返回制度基本信息
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 企业共同账户id（该字段将废弃，不建议使用，可用enterprise_id字段替换）(该字段将废弃，不建议使用，可用enterprise_id字段替换) |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号（该字段将废弃，不建议使用，可用enterprise_id字段替换）(该字段将废弃，不建议使用，可用enterprise_id字段替换) |
 | `enterprise_id` | `EnterpriseId` | `*string` | query | 否 | 企业ID |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页码 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 页大小 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 页码 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 页大小 |
 
 <a id="api-invoiceinstitutionscopemodify"></a>
 
@@ -269,15 +269,15 @@
 
 分页查询制度下适用范围列表
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 企业共同账户id（该字段将废弃，不建议使用，可用enterprise_id字段替换）(该字段将废弃，不建议使用，可用enterprise_id字段替换) |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号（该字段将废弃，不建议使用，可用enterprise_id字段替换）(该字段将废弃，不建议使用，可用enterprise_id字段替换) |
 | `enterprise_id` | `EnterpriseId` | `*string` | query | 否 | 企业id |
 | `institution_id` | `InstitutionId` | `*string` | query | 否 | 制度id |
 | `owner_type` | `OwnerType` | `*string` | query | 否 | 适配id类型 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页码 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 页大小 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 页码 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 页大小 |
 
 ## 嵌套请求参数
 

@@ -66,8 +66,8 @@
 
 请求约束：ServiceMarketPromotionTaskRelationQueryRequest is the request type for alipay.open.servicemarket.promotiontask.relation.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `commodity_id` | `CommodityId` | `*string` | query | 否 | 服务商品ID，并不是uid，取值来源于前端的获取 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页数量，范围(1-100)。默认：10 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 当前页码，从1开始。默认：1 |
+| `page_size` | `PageSize` | `*int64` | query | 否 | 每页数量，范围(1-100)。默认：10 |
+| `page_num` | `PageNum` | `*int64` | query | 否 | 当前页码，从1开始。默认：1 |

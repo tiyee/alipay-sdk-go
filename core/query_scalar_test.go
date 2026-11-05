@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/tiyee/alipay-sdk-go/core"
@@ -22,5 +23,32 @@ func TestQueryEncoderScalarValues(t *testing.T) {
 	}
 	if got := encoded.Form.Encode(); got != "empty=&flag=false&negative=-7&zero=0" {
 		t.Fatalf("encoded query = %q", got)
+	}
+}
+
+func TestQueryEncoderRequiredFields(t *testing.T) {
+	type pagination struct {
+		Page     *int64 `query:"page,required"`
+		Detailed *bool  `query:"detailed,required"`
+	}
+	page, detailed := int64(0), false
+	enc := core.QueryEncoder[*pagination]()
+	for _, tc := range []struct {
+		request *pagination
+		field   string
+	}{
+		{nil, "path_params"},
+		{&pagination{}, "page"},
+		{&pagination{Page: &page}, "detailed"},
+	} {
+		_, err := enc.Encode(tc.request)
+		var missing *core.ValidationError
+		if !errors.As(err, &missing) || missing.Field != tc.field {
+			t.Fatalf("got %v, want missing %s", err, tc.field)
+		}
+	}
+	encoded, err := enc.Encode(&pagination{Page: &page, Detailed: &detailed})
+	if err != nil || encoded.Form.Encode() != "detailed=false&page=0" {
+		t.Fatalf("explicit zero values: %v, %v", encoded.Form, err)
 	}
 }

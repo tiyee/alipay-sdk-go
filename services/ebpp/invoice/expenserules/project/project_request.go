@@ -81,7 +81,7 @@ type InvoiceExpenseRulesProjectRuleQueryRequest struct {
 	// EmployeeOpenId 是切换open_id后请使用：员工open_id（可空）
 	EmployeeOpenId *string `json:"employee_open_id,omitempty" query:"employee_open_id,omitempty"`
 	// PageNum 是页数
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是页大小
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }

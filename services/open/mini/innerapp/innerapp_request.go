@@ -180,5 +180,5 @@ type MiniInnerAppServiceQueryRequest struct {
 	// AppOrigin 是业务来源，新接入方需要向支付宝申请专用来源，否则不予接入。https://yuque.antfin-inc.com/tinyapp-all/qddncu/bidushixiang
 	AppOrigin *string `json:"app_origin,omitempty" query:"app_origin,omitempty"`
 	// IncludeOffline 是是否需要展示offline状态插件，不传默认为false（不展示）
-	IncludeOffline *string `json:"include_offline,omitempty" query:"include_offline,omitempty"`
+	IncludeOffline *bool `json:"include_offline,omitempty" query:"include_offline,omitempty"`
 }

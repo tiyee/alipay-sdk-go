@@ -64,13 +64,13 @@
 
 请求约束：DataDataServiceAdPromotePageBatchQueryRequest 是 alipay.data.dataservice.ad.promotepage.batchquery 的 V3 query 请求参数。
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `biz_token` | `BizToken` | `*string` | query | 否 | 代理商访问灯火平台的token |
 | `principal_tag` | `PrincipalTag` | `*string` | query | 否 | 商家标志 |
 | `type` | `Type` | `*string` | query | 否 | 推广页类型：COLLECT_INFO - 免费留资；TRADE - 付费留资； OPERATION_PAID - 运营商付费留资；待扩展 |
-| `page_no` | `PageNo` | `*string` | query | 否 | 分页参数之页数，从1开始 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页参数之每页大小，最大1000 |
+| `page_no` | `PageNo` | `*int64` | query | 是 | 分页参数之页数，从1开始 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页参数之每页大小，最大1000 |
 
 <a id="api-dataserviceadpromotepagedownload"></a>
 
@@ -85,15 +85,15 @@
 
 请求约束：DataDataServiceAdPromotePageDownloadRequest 是 alipay.data.dataservice.ad.promotepage.download 的 V3 query 请求参数。
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `start_date` | `StartDate` | `*string` | query | 否 | 留资开始日期，格式：yyyy-mm-dd 或 yyyy-mm-dd hh:mm:ss;不能早于30天前 |
 | `end_date` | `EndDate` | `*string` | query | 否 | 留资结束日期，格式：yyyy-mm-dd 或 yyyy-mm-dd hh:mm:ss;不能晚于当天 |
-| `page_no` | `PageNo` | `*string` | query | 否 | 分页参数之页数，从1开始 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页参数之每页大小，最大1000 |
+| `page_no` | `PageNo` | `*int64` | query | 是 | 分页参数之页数，从1开始 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页参数之每页大小，最大1000 |
 | `biz_token` | `BizToken` | `*string` | query | 否 | 代理商访问灯火平台的token |
 | `principal_tag` | `PrincipalTag` | `*string` | query | 否 | 商家标志 |
-| `promote_page_id` | `PromotePageId` | `*string` | query | 否 | 推广页id |
+| `promote_page_id` | `PromotePageId` | `*int64` | query | 是 | 推广页id |
 
 ## 嵌套请求参数
 

@@ -10,5 +10,5 @@ type MiniCategoryRequireQueryRequest struct {
 // MiniCategoryQueryRequest is the request type for alipay.open.mini.category.query.
 type MiniCategoryQueryRequest struct {
 	// IsFilter 是是否过滤小程序不可用类目。枚举值如下： true：表示过滤不可用类目。 false：表示不过滤不可用类目。
-	IsFilter *string `json:"is_filter,omitempty" query:"is_filter,omitempty"`
+	IsFilter *bool `json:"is_filter,omitempty" query:"is_filter,omitempty"`
 }

@@ -94,5 +94,5 @@ type CcmSwArticleGetRequest struct {
 	// CcsInstanceId 是子部门ID，不传为默认部门
 	CcsInstanceId *string `json:"ccs_instance_id,omitempty" query:"ccs_instance_id,omitempty"`
 	// Id 是文章ID
-	Id *string `json:"id,omitempty" query:"id,omitempty"`
+	Id *int64 `json:"id,omitempty" query:"id,required"`
 }

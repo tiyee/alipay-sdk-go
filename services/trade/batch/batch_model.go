@@ -1,5 +1,7 @@
 package batch
 
+import "github.com/tiyee/alipay-sdk-go/services/trade"
+
 // BatchSettleStatus 是批量结算与请款分账明细的处理状态，
 // 取值依据官方 V3 文档。
 type BatchSettleStatus string
@@ -39,7 +41,7 @@ type BatchRoyaltyClause struct {
 	// TransInEntityBizType 是分账转入主体业务类型（目前仅支持 settled）。
 	TransInEntityBizType *string `json:"trans_in_entity_biz_type,omitempty"`
 	// TransInSubMerchant 是分账转入方二级商户信息。
-	TransInSubMerchant *SubMerchant `json:"trans_in_sub_merchant,omitempty"`
+	TransInSubMerchant *trade.SubMerchant `json:"trans_in_sub_merchant,omitempty"`
 	// TransOutEntityType 是分账转出主体类型。
 	TransOutEntityType *string `json:"trans_out_entity_type,omitempty"`
 	// TransOutEntityID 是分账转出主体账号。
@@ -47,7 +49,7 @@ type BatchRoyaltyClause struct {
 	// TransOutEntityBizType 是分账转出方主体业务类型。
 	TransOutEntityBizType *string `json:"trans_out_entity_biz_type,omitempty"`
 	// TransOutSubMerchant 是分账转出方二级商户信息。
-	TransOutSubMerchant *SubMerchant `json:"trans_out_sub_merchant,omitempty"`
+	TransOutSubMerchant *trade.SubMerchant `json:"trans_out_sub_merchant,omitempty"`
 }
 
 // BatchRoyaltyDetail 是请款分账查询的单条明细。
@@ -71,13 +73,13 @@ type BatchRoyaltyDetail struct {
 	// TransInEntityID 是分账转入主体账号。
 	TransInEntityID *string `json:"trans_in_entity_id,omitempty"`
 	// TransInSubMerchant 是分账转入方二级商户信息。
-	TransInSubMerchant *SubMerchant `json:"trans_in_sub_merchant,omitempty"`
+	TransInSubMerchant *trade.SubMerchant `json:"trans_in_sub_merchant,omitempty"`
 	// TransOutEntityType 是分账转出主体类型。
 	TransOutEntityType *string `json:"trans_out_entity_type,omitempty"`
 	// TransOutEntityID 是分账转出主体账号。
 	TransOutEntityID *string `json:"trans_out_entity_id,omitempty"`
 	// TransOutSubMerchant 是分账转出方二级商户信息。
-	TransOutSubMerchant *SubMerchant `json:"trans_out_sub_merchant,omitempty"`
+	TransOutSubMerchant *trade.SubMerchant `json:"trans_out_sub_merchant,omitempty"`
 	// ErrorCode 是错误编码。
 	ErrorCode *string `json:"error_code,omitempty"`
 	// ErrorDesc 是错误描述。
@@ -106,15 +108,7 @@ type SettleClause struct {
 	// Currency 是结算币种；目前支持人民币 CNY。
 	Currency *string `json:"currency,omitempty"`
 	// SubMerchant 是二级商户信息。
-	SubMerchant *SubMerchant `json:"sub_merchant,omitempty"`
-}
-
-// SubMerchant 是支付宝二级商户信息。
-type SubMerchant struct {
-	// MerchantID 是支付宝二级商户编号；直付通和机构间连场景必传。
-	MerchantID *string `json:"merchant_id,omitempty"`
-	// MerchantType 是二级商户编号类型；目前仅支持 alipay。
-	MerchantType *string `json:"merchant_type,omitempty"`
+	SubMerchant *trade.SubMerchant `json:"sub_merchant,omitempty"`
 }
 
 // BatchSettleDetail 是批量结算详情。
@@ -142,5 +136,5 @@ type BatchSettleDetail struct {
 	// ErrorDesc 是错误描述。
 	ErrorDesc *string `json:"error_desc,omitempty"`
 	// SubMerchant 是二级商户信息。
-	SubMerchant *SubMerchant `json:"sub_merchant,omitempty"`
+	SubMerchant *trade.SubMerchant `json:"sub_merchant,omitempty"`
 }

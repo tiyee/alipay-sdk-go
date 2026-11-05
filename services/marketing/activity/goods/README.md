@@ -38,13 +38,13 @@
 
 通过此接口可查询活动的可用或不可用商品,判断是否在该商品可用，来决定是否展示。
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `merchant_id` | `MerchantId` | `*string` | query | 否 | 商户PID,默认为当前接口调用商户。 |
 | `activity_id` | `ActivityId` | `string` | 路径 | 是 | 活动id |
 | `goods_use_type` | `GoodsUseType` | `*string` | query | 否 | 活动单品类型。 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 分页查询页码。 限制: 必须为大于0的整数 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页查询单页数据条数。 限制: 1.必须为大于0的整数 2.每页最大值为20 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 分页查询页码。 限制: 必须为大于0的整数 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页查询单页数据条数。 限制: 1.必须为大于0的整数 2.每页最大值为20 |
 | `product_version` | `ProductVersion` | `*string` | query | 否 | 版本号 枚举值: 2.0.0 |
 | `merchant_access_mode` | `MerchantAccessMode` | `*string` | query | 否 | 商户接入模式 |
 

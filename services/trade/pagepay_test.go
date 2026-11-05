@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	stdhtml "html"
 	"net/url"
 	"strings"
@@ -161,7 +162,9 @@ func TestPagePayURLArtifact(t *testing.T) {
 
 func TestWapPayUsesOwnMethod(t *testing.T) {
 	products := newPaymentProducts(t)
-	rawURL, err := products.WapPayURL(context.Background(), pagePayRequest())
+	req := pagePayRequest()
+	req.ProductCode = "QUICK_WAP_WAY"
+	rawURL, err := products.WapPayURL(context.Background(), req)
 	if err != nil {
 		t.Fatalf("WapPayURL() error = %v", err)
 	}
@@ -179,8 +182,13 @@ func TestAppPayOrderString(t *testing.T) {
 		OutTradeNo:  "20261105002",
 		TotalAmount: "9.90",
 		Subject:     "订单标题",
-		ProductCode: "QUICK_MSECURITY_PAY",
-		SignParams: &trade.SignParams{
+		ProductCode: trade.ProductCodeCyclePayAuth,
+		AgreementSignParams: &trade.SignParams{
+			PersonalProductCode: ptr("CYCLE_PAY_AUTH_P"),
+			AccessParams:        &trade.SignAccessParams{Channel: ptr("ALIPAYAPP")},
+			PeriodRuleParams: &trade.PeriodRuleParams{
+				PeriodType: ptr("MONTH"), Period: ptr(int64(1)), ExecuteTime: ptr("2026-12-01"), SingleAmount: ptr("9.90"),
+			},
 			ProductCode: ptr("GENERAL_WITHHOLDING"),
 			SignScene:   ptr("DEFAULT|DEFAULT"),
 		},
@@ -201,16 +209,62 @@ func TestAppPayOrderString(t *testing.T) {
 	}
 	verifyArtifactValues(t, values)
 	var biz struct {
-		SignParams *struct {
+		ObsoleteKey json.RawMessage `json:"sign_params"`
+		SignParams  *struct {
 			ProductCode string `json:"product_code"`
-		} `json:"sign_params"`
+		} `json:"agreement_sign_params"`
 	}
 	if err := json.Unmarshal([]byte(values.Get("biz_content")), &biz); err != nil {
 		t.Fatal(err)
 	}
-	if biz.SignParams == nil || biz.SignParams.ProductCode != "GENERAL_WITHHOLDING" {
-		t.Fatalf("sign_params missing: %v", biz)
+	if biz.ObsoleteKey != nil || biz.SignParams == nil || biz.SignParams.ProductCode != "GENERAL_WITHHOLDING" {
+		t.Fatalf("agreement_sign_params missing: %v", biz)
 	}
+}
+
+func TestAppPayDefaultsAndSigningConstraints(t *testing.T) {
+	products := newPaymentProducts(t)
+	req := trade.AppPayRequest{OutTradeNo: "app_order", TotalAmount: "9.90", Subject: "item"}
+	order, err := products.AppPayOrderString(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, err := url.ParseQuery(order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyArtifactValues(t, values)
+	var biz map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(values.Get("biz_content")), &biz); err != nil {
+		t.Fatal(err)
+	}
+	if biz["product_code"] != nil || biz["agreement_sign_params"] != nil {
+		t.Fatalf("unexpected fields in ordinary payment: %v", biz)
+	}
+
+	checkField := func(field string) {
+		t.Helper()
+		_, err := products.AppPayOrderString(t.Context(), req)
+		var invalid *core.ValidationError
+		if !errors.As(err, &invalid) || invalid.Field != field {
+			t.Fatalf("got %v, want error for %s", err, field)
+		}
+	}
+	req.ProductCode = trade.ProductCodeCyclePayAuth
+	checkField("agreement_sign_params")
+	sign := &trade.SignParams{ProductCode: ptr("GENERAL_WITHHOLDING"), PersonalProductCode: ptr("CYCLE_PAY_AUTH_P"), SignScene: ptr("DEFAULT|DEFAULT")}
+	req.AgreementSignParams = sign
+	checkField("agreement_sign_params.access_params.channel")
+	sign.AccessParams = &trade.SignAccessParams{Channel: ptr("ALIPAYAPP")}
+	checkField("agreement_sign_params.period_rule_params")
+	period := &trade.PeriodRuleParams{SingleAmount: ptr("9.90")}
+	sign.PeriodRuleParams = period
+	checkField("agreement_sign_params.period_rule_params.period_type")
+	period.PeriodType = ptr("MONTH")
+	checkField("agreement_sign_params.period_rule_params.period")
+	period.Period = ptr(int64(1))
+	period.ExecuteTime = ptr("2026-12-31")
+	checkField("agreement_sign_params.period_rule_params.execute_time")
 }
 
 func TestArtifactCertificateModeParams(t *testing.T) {
@@ -254,5 +308,122 @@ func TestArtifactValidations(t *testing.T) {
 	if _, err := products.AppPayOrderString(context.Background(), trade.AppPayRequest{
 		OutTradeNo: "T1", TotalAmount: "0.00", Subject: "标题", ProductCode: "QUICK_MSECURITY_PAY"}); err == nil {
 		t.Fatal("total_amount must be a positive decimal")
+	}
+}
+
+func TestWapPayChecksEchoedFieldsBeforeSigning(t *testing.T) {
+	products := newPaymentProducts(t)
+	for _, tt := range []struct{ field, value string }{
+		{"passback_params", "note%26buyer_id%3Dother"}, {"passback_params", "note&buyer_id=other"}, {"passback_params", "bad%"},
+		{"out_trade_no", "order&out_z=value"}, {"body", "memo&seller_id=second"}, {"subject", "title&total_amount=1"},
+	} {
+		req := pagePayRequest()
+		req.ProductCode = "QUICK_WAP_WAY"
+		switch tt.field {
+		case "passback_params":
+			req.PassbackParams = &tt.value
+		case "out_trade_no":
+			req.OutTradeNo = tt.value
+		case "body":
+			req.Body = &tt.value
+		case "subject":
+			req.Subject = tt.value
+		}
+		artifact, err := products.WapPayURL(t.Context(), req)
+		var v *core.ValidationError
+		if !errors.As(err, &v) || v.Field != tt.field || artifact != "" {
+			t.Fatalf("%+v: %v", tt, err)
+		}
+	}
+	req := pagePayRequest()
+	req.ProductCode = "QUICK_WAP_WAY"
+	passback := url.QueryEscape("A&B 中文")
+	req.PassbackParams = &passback
+	artifact, err := products.WapPayURL(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := url.Parse(artifact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var biz struct {
+		Passback string `json:"passback_params"`
+	}
+	if err := json.Unmarshal([]byte(target.Query().Get("biz_content")), &biz); err != nil || biz.Passback != passback {
+		t.Fatalf("passback %q, err %v", biz.Passback, err)
+	}
+}
+
+func TestPageAndWapSpecificPaymentParameters(t *testing.T) {
+	products := newPaymentProducts(t)
+	req := pagePayRequest()
+	req.QRPayMode = ptr(trade.QRPayCustomWidth)
+	req.QRCodeWidth = ptr(int64(180))
+	req.StoreID = ptr("store")
+	req.BusinessParams = ptr(`{"feature":"value"}`)
+	for _, method := range []string{"page", "wap"} {
+		var raw string
+		var err error
+		if method == "page" {
+			raw, err = products.PagePayURL(t.Context(), req)
+		} else {
+			req.ProductCode = trade.ProductCodeQuickWapWay
+			if _, err = products.WapPayURL(t.Context(), req); err == nil {
+				t.Fatal("WAP accepted PC fields")
+			}
+			req = pagePayRequest()
+			req.QuitURL = ptr("https://merchant.example.com/quit")
+			if _, err = products.PagePayURL(t.Context(), req); err == nil {
+				t.Fatal("PC accepted quit_url")
+			}
+			req.ProductCode = trade.ProductCodeQuickWapWay
+			raw, err = products.WapPayURL(t.Context(), req)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values := u.Query()
+		verifyArtifactValues(t, values)
+		var biz map[string]json.RawMessage
+		if err = json.Unmarshal([]byte(values.Get("biz_content")), &biz); err != nil {
+			t.Fatal(err)
+		}
+		if method == "page" && (string(biz["qrcode_width"]) != "180" || string(biz["qr_pay_mode"]) != `"4"` || string(biz["business_params"]) != `"{\"feature\":\"value\"}"` || string(biz["store_id"]) != `"store"`) {
+			t.Fatalf("unexpected PC fields: %v", biz)
+		}
+		if method == "wap" && (string(biz["quit_url"]) != `"https://merchant.example.com/quit"` || values.Has("quit_url")) {
+			t.Fatalf("unexpected WAP fields: %v", biz)
+		}
+	}
+}
+
+func TestArtifactsRespectNestedParameterScope(t *testing.T) {
+	products := newPaymentProducts(t)
+	req := pagePayRequest()
+	req.GoodsDetail = []trade.GoodsDetail{{
+		GoodsID: "001", GoodsName: "item", Price: "1.00", Quantity: 1, GoodsEANID: ptr("6900000000000"),
+	}}
+	if _, err := products.PagePayURL(t.Context(), req); err == nil {
+		t.Fatal("PC accepted WAP goods_ean_id")
+	}
+	req.ProductCode = trade.ProductCodeQuickWapWay
+	if _, err := products.WapPayForm(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	req.ExtendParams = &trade.ExtendParams{FqNum: ptr("3")}
+	if _, err := products.WapPayURL(t.Context(), req); err == nil {
+		t.Fatal("WAP accepted REST fq_num")
+	}
+	app := trade.AppPayRequest{
+		OutTradeNo: "app_order", TotalAmount: "1.00", Subject: "item",
+		ExtUserInfo: &trade.ExtUserInfo{FixBuyer: ptr("T")},
+	}
+	if _, err := products.AppPayOrderString(t.Context(), app); err == nil {
+		t.Fatal("App accepted REST fix_buyer")
 	}
 }

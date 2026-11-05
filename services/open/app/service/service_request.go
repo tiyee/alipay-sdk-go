@@ -31,9 +31,9 @@ type AppServiceListQueryRequest struct {
 	// CategoryId 是类目
 	CategoryId *string `json:"category_id,omitempty" query:"category_id,omitempty"`
 	// PageSize 是每页记录数
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,omitempty"`
 	// PageNum 是页码
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,omitempty"`
 }
 
 // AppServiceQueryRequest is the request type for alipay.open.app.service.query.

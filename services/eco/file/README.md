@@ -38,10 +38,10 @@
 
 获取文件直传地址（E签宝）
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `target_app_id` | `TargetAppId` | `*string` | query | 否 | 目标isv应用ID |
 | `content_md_5` | `ContentMd5` | `*string` | query | 否 | 先计算文件md5值，在对该md5值进行base64编码 |
 | `content_type` | `ContentType` | `*string` | query | 否 | 目标文件的MIME类型 |
 | `file_name` | `FileName` | `*string` | query | 否 | 文件名称。 注意：必须带上文件扩展名，不然会导致后续发起流程校验不通过。示例：合同.pdf。 |
-| `file_size` | `FileSize` | `*string` | query | 否 | 文件大小，单位byte。最大允许上传30Mb |
+| `file_size` | `FileSize` | `*int64` | query | 否 | 文件大小，单位byte。最大允许上传30Mb |

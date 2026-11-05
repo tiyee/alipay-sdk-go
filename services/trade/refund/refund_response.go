@@ -39,6 +39,26 @@ type RefundResponse struct {
 	// RefundVoucherDetailList 是本次退款退的券信息，
 	// 仅在 query_options 指定 refund_voucher_detail_list 时返回。
 	RefundVoucherDetailList []trade.VoucherDetail `json:"refund_voucher_detail_list,omitempty"`
+	// GmtRefundPay 表示退款支付时间。
+	GmtRefundPay *string `json:"gmt_refund_pay,omitempty"`
+	// HasDepositBack 表示是否有银行卡冲退，仅当query_options中传入deposit_back_info时返回。
+	HasDepositBack *string `json:"has_deposit_back,omitempty"`
+	// OpenID 表示买家支付宝用户号，该参数已废弃，请不要使用。
+	OpenID *string `json:"open_id,omitempty"`
+	// PresentRefundBuyerAmount 表示本次退款金额中买家退款金额;单位：元。
+	PresentRefundBuyerAmount *string `json:"present_refund_buyer_amount,omitempty"`
+	// PresentRefundDiscountAmount 表示本次退款金额中平台优惠退款金额；单位：元。
+	PresentRefundDiscountAmount *string `json:"present_refund_discount_amount,omitempty"`
+	// PresentRefundMDiscountAmount 表示本次退款金额中商家优惠退款金额；单位：元。
+	PresentRefundMDiscountAmount *string `json:"present_refund_mdiscount_amount,omitempty"`
+	// RefundChargeAmount 表示本次退款针对收款方的退收费金额；单位：元。
+	RefundChargeAmount *string `json:"refund_charge_amount,omitempty"`
+	// RefundCurrency 表示退款币种信息。
+	RefundCurrency *string `json:"refund_currency,omitempty"`
+	// RefundPresetPayToolList 是退款使用的预设支付工具。
+	RefundPresetPayToolList *PresetPayToolInfo `json:"refund_preset_paytool_list,omitempty"`
+	// RefundSettlementID 表示退款清算编号，用于清算对账使用。
+	RefundSettlementID *string `json:"refund_settlement_id,omitempty"`
 }
 
 // QueryRefundResponse 是退款查询的业务响应。
@@ -80,6 +100,28 @@ type QueryRefundResponse struct {
 	// DepositBackInfoList 是银行卡冲退信息列表；文档中该字段的
 	// query_options 取值存在原文不一致，以官方确认为准。
 	DepositBackInfoList []DepositBackInfo `json:"deposit_back_info_list,omitempty"`
+	// EnterprisePayInfo 是因公支付信息。
+	EnterprisePayInfo *trade.EnterprisePayInfo `json:"enterprise_pay_info,omitempty"`
+	// ErrorCode 表示退款失败错误码。
+	ErrorCode *string `json:"error_code,omitempty"`
+	// IndustrySpecDetail 表示行业特殊信息（例如在医保卡支付退款中，医保局向商户返回医疗信息）。
+	IndustrySpecDetail *string `json:"industry_sepc_detail,omitempty"`
+	// PresentRefundBuyerAmount 表示本次退款金额中买家退款金额。
+	PresentRefundBuyerAmount *string `json:"present_refund_buyer_amount,omitempty"`
+	// PresentRefundDiscountAmount 表示本次退款金额中平台优惠退款金额。
+	PresentRefundDiscountAmount *string `json:"present_refund_discount_amount,omitempty"`
+	// PresentRefundMDiscountAmount 表示本次退款金额中商家优惠退款金额。
+	PresentRefundMDiscountAmount *string `json:"present_refund_mdiscount_amount,omitempty"`
+	// RefundChannelList 表示若支付渠道包含医保统筹、个账，则显示退款的渠道信息。
+	RefundChannelList *string `json:"refund_channel_list,omitempty"`
+	// RefundChannelStatus 表示若支付渠道包含医保统筹、个账，全渠道退款成功时返回SUCCESS，全失败时返回FAIL，部分成功时返回PART_SUCCESS。
+	RefundChannelStatus *string `json:"refund_channel_status,omitempty"`
+	// RefundChargeAmount 表示本次退款针对收款方的退收费金额；单位：元。
+	RefundChargeAmount *string `json:"refund_charge_amount,omitempty"`
+	// RefundReason 表示发起退款时，传入的退款原因。
+	RefundReason *string `json:"refund_reason,omitempty"`
+	// RefundSettlementID 表示退款清算编号，用于清算对账使用。
+	RefundSettlementID *string `json:"refund_settlement_id,omitempty"`
 }
 
 // RefundApplyResponse 是 alipay.trade.refund.apply 的业务响应。

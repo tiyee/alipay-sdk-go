@@ -30,12 +30,13 @@ func TestBillSpecs(t *testing.T) {
 		{
 			name: "当前余额",
 			call: func(s *bill.Service, e *recordingExecutor) error {
-				_, err := s.BillBalance(context.Background(), bill.BillBalanceRequest{})
+				_, err := s.BillBalance(context.Background(), bill.BillBalanceRequest{
+					BillUserID: ptr("2088001")})
 				return err
 			},
 			wantMethod: "alipay.data.bill.balance.query",
 			wantPath:   "/v3/alipay/data/bill/balance/query",
-			wantQuery:  "",
+			wantQuery:  "bill_user_id=2088001",
 		},
 		{
 			name: "历史余额",

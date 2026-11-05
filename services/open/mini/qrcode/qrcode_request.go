@@ -24,7 +24,7 @@ type MiniQRCodeUnbindRequest struct {
 // MiniQRCodeQueryRequest is the request type for alipay.open.mini.qrcode.query.
 type MiniQRCodeQueryRequest struct {
 	// PageNo 是页码
-	PageNo *string `json:"page_no,omitempty" query:"page_no,omitempty"`
+	PageNo *int64 `json:"page_no,omitempty" query:"page_no,required"`
 	// PageSize 是每页条数，最大为10
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }

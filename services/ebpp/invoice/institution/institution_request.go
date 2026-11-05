@@ -217,9 +217,9 @@ type InvoiceInstitutionPageInfoQueryRequest struct {
 	// EnterpriseId 是企业ID
 	EnterpriseId *string `json:"enterprise_id,omitempty" query:"enterprise_id,omitempty"`
 	// PageNum 是页码
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是页大小
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // InvoiceInstitutionScopePageInfoQueryRequest is the query request model for alipay.ebpp.invoice.institution.scopepageinfo.query.
@@ -235,7 +235,7 @@ type InvoiceInstitutionScopePageInfoQueryRequest struct {
 	// OwnerType 是适配id类型
 	OwnerType *string `json:"owner_type,omitempty" query:"owner_type,omitempty"`
 	// PageNum 是页码
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是页大小
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }

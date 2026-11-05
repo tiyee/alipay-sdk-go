@@ -108,6 +108,8 @@ type TradeFundBill struct {
 	RealAmount *string `json:"real_amount,omitempty"`
 	// FundType 是渠道所使用的资金类型，仅银行卡渠道返回。
 	FundType *FundType `json:"fund_type,omitempty"`
+	// BankCode 表示银行卡支付时的银行代码。
+	BankCode *string `json:"bank_code,omitempty"`
 }
 
 // GoodsDetail 是预下单与支付的商品明细。
@@ -130,12 +132,20 @@ type GoodsDetail struct {
 	OutItemID *string `json:"out_item_id,omitempty"`
 	// OutSkuID 是商家侧小程序商品 SKU ID。
 	OutSkuID *string `json:"out_sku_id,omitempty"`
+	// AlipayGoodsID 表示支付宝定义的统一商品编号。
+	AlipayGoodsID *string `json:"alipay_goods_id,omitempty"`
+	// Body 表示商品描述信息。
+	Body *string `json:"body,omitempty"`
+	// GoodsEANID 表示商品69条码。
+	GoodsEANID *string `json:"goods_ean_id,omitempty"`
 }
 
 // SettleInfo 描述结算信息；目前只支持一条结算明细。
 type SettleInfo struct {
 	// SettleDetailInfos 是结算详细信息，目前只支持一条。
 	SettleDetailInfos []SettleDetailInfo `json:"settle_detail_infos"`
+	// SettlePeriodTime 表示该笔订单的超期自动确认结算时间，到达期限后，将自动确认结算。
+	SettlePeriodTime *string `json:"settle_period_time,omitempty"`
 }
 
 // SettleDetailInfo 是单条结算明细。
@@ -154,8 +164,6 @@ type SettleDetailInfo struct {
 	SettleEntityType *string `json:"settle_entity_type,omitempty"`
 	// ActualAmount 仅用于直付通账期模式的部分确认结算。
 	ActualAmount *string `json:"actual_amount,omitempty"`
-	// SettlePeriodTime 是超期自动确认结算时间（1d～365d），仅账期结算模式有效。
-	SettlePeriodTime *string `json:"settle_period_time,omitempty"`
 }
 
 // ExtendParams 是预下单的业务扩展参数。
@@ -172,6 +180,20 @@ type ExtendParams struct {
 	TCInstallmentOrderID *string `json:"tc_installment_order_id,omitempty"`
 	// TradeComponentOrderID 是公域商品交易业务订单 ID。
 	TradeComponentOrderID *string `json:"trade_component_order_id,omitempty"`
+	// CreditExtInfo 表示信用参数，可选，如有需要请与芝麻约定后传入。
+	CreditExtInfo *string `json:"credit_ext_info,omitempty"`
+	// FqChannels 表示分期渠道。
+	FqChannels *string `json:"fq_channels,omitempty"`
+	// FqNum 表示使用花呗分期的期数。
+	FqNum *string `json:"fq_num,omitempty"`
+	// FqSellerPercent 表示花呗分期卖家承担收费比例。
+	FqSellerPercent *string `json:"fq_seller_percent,omitempty"`
+	// HbFqNum 表示使用花呗分期要进行的分期数。
+	HbFqNum *string `json:"hb_fq_num,omitempty"`
+	// HbFqSellerPercent 表示使用花呗分期需要卖家承担的手续费比例的百分值，传入100代表100%。
+	HbFqSellerPercent *string `json:"hb_fq_seller_percent,omitempty"`
+	// IndustryRefluxInfo 表示行业数据回流信息, 详见：地铁支付接口参数补充说明。
+	IndustryRefluxInfo *string `json:"industry_reflux_info,omitempty"`
 }
 
 // BusinessParams 是商户与支付宝约定的直传业务信息。
@@ -192,6 +214,12 @@ type BusinessParams struct {
 	MCCreateTradeIP *string `json:"mc_create_trade_ip,omitempty"`
 	// TinyAppMerchantBizType 是小程序细分业务场景。
 	TinyAppMerchantBizType *string `json:"tiny_app_merchant_biz_type,omitempty"`
+	// BuyerMemo 表示买家备注信息。
+	BuyerMemo *string `json:"buyer_memo,omitempty"`
+	// ForcePwd 表示收银台强制密码核身参数，实际收银侧会根据这个参数为true并结合业务场景来判断是否密码核身。
+	ForcePwd *string `json:"force_pwd,omitempty"`
+	// PriorityUnfreezeAsset 表示信用预授权转交易阶段，优先解冻的用户资产。
+	PriorityUnfreezeAsset *string `json:"priority_unfreeze_asset,omitempty"`
 }
 
 // BkAgentReqInfo 是间联交易下由收单机构上送的信息。
@@ -206,8 +234,6 @@ type BkAgentReqInfo struct {
 	SerialNum *string `json:"serial_num,omitempty"`
 	// Location 是终端设备实时经纬度，格式为纬度/经度。
 	Location *string `json:"location,omitempty"`
-	// PaymentType 是支付类型（如 agent_pay 智能体 SDK 支付）。
-	PaymentType *string `json:"payment_type,omitempty"`
 }
 
 // RoyaltyDetailInfo 是分账/退分账明细（OpenApiRoyaltyDetailInfoPojo）。
@@ -287,9 +313,9 @@ type AgreementParams struct {
 // RoyaltyInfo 描述分账信息。
 type RoyaltyInfo struct {
 	// RoyaltyType 是分账类型；目前只支持 ROYALTY。
-	RoyaltyType *RoyaltyType `json:"royalty_type,omitempty"`
+	RoyaltyType *PaymentRoyaltyType `json:"royalty_type,omitempty"`
 	// RoyaltyDetailInfos 是分账明细信息，可描述多条分账指令。
-	RoyaltyDetailInfos []RoyaltyDetailInfo `json:"royalty_detail_infos,omitempty"`
+	RoyaltyDetailInfos []PaymentRoyaltyDetail `json:"royalty_detail_infos,omitempty"`
 }
 
 // SignParams 是支付并签约场景的签约参数（官方 SignParams 模型子集）。
@@ -314,6 +340,14 @@ type SignParams struct {
 	SignNotifyURL *string `json:"sign_notify_url,omitempty"`
 	// EffectTime 是签约请求的有效时间（秒）。
 	EffectTime *string `json:"effect_time,omitempty"`
+	// AllowHuazhiDegrade 表示是否允许花芝GO降级成原代扣（即销售方案指定的代扣产品），在花芝GO场景下才会使用该值。
+	AllowHuazhiDegrade *bool `json:"allow_huazhi_degrade,omitempty"`
+	// RecommendSortChannelParams 表示商户指定优先渠道扣款参数。
+	RecommendSortChannelParams []SpecifiedChannelParams `json:"recommend_sort_channel_params,omitempty"`
+	// SpecifiedDeductRuleParams 是商户指定的扣款规则。
+	SpecifiedDeductRuleParams *SpecifiedDeductRuleParams `json:"specified_deduct_rule_params,omitempty"`
+	// SubMerchant 是二级商户信息。
+	SubMerchant *SignMerchantParams `json:"sub_merchant,omitempty"`
 }
 
 // SignAccessParams 描述签约渠道。
@@ -339,6 +373,8 @@ type PeriodRuleParams struct {
 	TotalPayments *int64 `json:"total_payments,omitempty"`
 	// IsTrialMode 标识本次签约是否有试用期（Y/N）。
 	IsTrialMode *string `json:"is_trial_mode,omitempty"`
+	// SceneRuleParams 是周期扣款的场景规则。
+	SceneRuleParams *SceneRuleParams `json:"scene_rule_params,omitempty"`
 }
 
 // PaymentProducts 构建电脑网站支付（page.pay）、手机网站支付
@@ -411,7 +447,7 @@ func (p *PaymentProducts) WapPayForm(ctx context.Context, req PagePayRequest,
 
 // AppPayOrderString 构建 App 支付订单串（orderStr）：
 // 调用方将订单串交给支付宝客户端 SDK 唤起支付。
-// 支付并签约场景经 SignParams 传入签约参数，字段与必填关系依据
+// 支付并签约场景经 AgreementSignParams 传入签约参数，字段与必填关系依据
 // 官方商家扣款场景文档（https://opendocs.alipay.com/open-v3/0jf33m）。
 //
 // 契约：官方 V3 文档
@@ -434,7 +470,7 @@ func (p *PaymentProducts) AppPayOrderString(ctx context.Context, req AppPayReque
 
 func (p *PaymentProducts) build(ctx context.Context, method string, req PagePayRequest,
 	opts ...core.CallOption) (*core.Artifact, error) {
-	if err := req.validate(); err != nil {
+	if err := req.validate(method); err != nil {
 		return nil, err
 	}
 	bizParams, err := req.artifactParams()
@@ -442,4 +478,28 @@ func (p *PaymentProducts) build(ctx context.Context, method string, req PagePayR
 		return nil, err
 	}
 	return p.builder.BuildArtifact(ctx, method, bizParams, core.NewCallSettings(opts...))
+}
+
+// PaymentRoyaltyDetail 是支付分账指令（官方 RoyaltyDetailInfos）。
+type PaymentRoyaltyDetail struct {
+	// Amount 是分账金额，单位为元。
+	Amount *string `json:"amount,omitempty"`
+	// AmountPercentage 是分账比例，例如 "20" 表示 20%。
+	AmountPercentage *string `json:"amount_percentage,omitempty"`
+	// BatchNo 是配合 bankIndex 使用的分账批次号。
+	BatchNo *string `json:"batch_no,omitempty"`
+	// Desc 是分账说明。
+	Desc *string `json:"desc,omitempty"`
+	// OutRelationID 是商户为该笔分账分配的唯一关联号。
+	OutRelationID *string `json:"out_relation_id,omitempty"`
+	// SerialNo 是分账执行顺序，取正整数。
+	SerialNo *int64 `json:"serial_no,omitempty"`
+	// TransIn 是接收分账金额的账户。
+	TransIn *string `json:"trans_in,omitempty"`
+	// TransInType 是转入账户类型。
+	TransInType *AccountType `json:"trans_in_type,omitempty"`
+	// TransOut 是转出分账金额的账户。
+	TransOut *string `json:"trans_out,omitempty"`
+	// TransOutType 是转出账户类型。
+	TransOutType *AccountType `json:"trans_out_type,omitempty"`
 }

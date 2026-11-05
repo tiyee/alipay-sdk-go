@@ -167,3 +167,11 @@ type RefundFundDetail struct {
 	// TransInType 是收入方账户类型。
 	TransInType *string `json:"trans_in_type,omitempty"`
 }
+
+// PresetPayToolInfo 是预设支付工具信息。
+type PresetPayToolInfo struct {
+	// Amount 表示前置资产金额。
+	Amount []string `json:"amount,omitempty"`
+	// AssertTypeCode 表示前置资产类型编码，和收单支付传入的preset_pay_tool里面的类型编码保持一致。
+	AssertTypeCode *string `json:"assert_type_code,omitempty"`
+}

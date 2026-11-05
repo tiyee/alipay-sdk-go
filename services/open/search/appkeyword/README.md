@@ -69,12 +69,12 @@
 
 请求约束：SearchAppKeywordBatchQueryRequest is the request type for alipay.open.search.appkeyword.batchquery.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `target_appid` | `TargetAppid` | `*string` | query | 否 | 小程序id |
 | `status` | `Status` | `*string` | query | 否 | 关键词的状态，枚举值，不传该字段表示查询所有状态 |
-| `page_number` | `PageNumber` | `*string` | query | 否 | 当前页 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页显示条数 |
+| `page_number` | `PageNumber` | `*int64` | query | 否 | 当前页 |
+| `page_size` | `PageSize` | `*int64` | query | 否 | 每页显示条数 |
 
 <a id="api-searchappkeyworddelete"></a>
 

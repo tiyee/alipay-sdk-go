@@ -38,11 +38,11 @@
 
 通过此接口可查询活动的可用小程序,判断活动是否在该小程序可用，来决定是否展示。
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `merchant_id` | `MerchantId` | `*string` | query | 否 | 商户PID,默认为当前接口调用商户 限制: 接口调用者必须有商户代运营权限。 [代运营授权流程](https://opendocs.alipay.com/mini/01hm6i#%E4%BB%A3%E8%BF%90%E8%90%A5%E6%8E%88%E6%9D%83) |
 | `activity_id` | `ActivityId` | `string` | 路径 | 是 | 活动id |
-| `page_num` | `PageNum` | `*string` | query | 否 | 分页查询页码。 限制: 必须为大于0的整数 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 分页查询页码。 限制: 必须为大于0的整数 |
 | `page_size` | `PageSize` | `*string` | query | 否 | 分页查询单页数据条数。 限制: 1.必须为大于0的整数 2.每页最大值为20 |
 | `merchant_access_mode` | `MerchantAccessMode` | `*string` | query | 否 | 商户接入模式 |
 

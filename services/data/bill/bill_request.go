@@ -34,8 +34,6 @@ type BillBalanceHisRequest struct {
 	BizDate *string `query:"biz_date,omitempty"`
 	// BizMonth 是查询指定自然月（yyyy-MM）的期初与期末余额。
 	BizMonth *string `query:"biz_month,omitempty"`
-	// BillUserID 是目标查询账户；仅支持部分场景。
-	BillUserID *string `query:"bill_user_id,omitempty"`
 }
 
 // BillAccountLogRequest 是 alipay.data.bill.accountlog.query

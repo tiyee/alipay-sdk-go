@@ -39,11 +39,11 @@
 根据发票代码，发票号码获取用户的普通增值税电子发票pdf文件
 查询权限要求： 发票属于当前isv报销单据进行状态（支持的状态有 EXPENSE_APPLY－用户已提交申请 EXPENSE_APPROVAL_PASS －报销审核通过 EXPENSE_FINISHED－报销完结）
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `user_id` | `UserId` | `*string` | query | 否 | 发票归属用户 id，用户在支付宝的唯一标识，以 2088 开头的 16 位纯数字组成。 |
 | `open_id` | `OpenId` | `*string` | query | 否 | 发票归属用户 id，用户在支付宝的唯一标识，以 2088 开头的 16 位纯数字组成。 |
 | `invoice_code` | `InvoiceCode` | `*string` | query | 否 | 发票代码 字段长度（10-12位），全电票时为空 |
 | `invoice_no` | `InvoiceNo` | `*string` | query | 否 | 发票号码 字段长度（8-10位），全电票时为20位 |
 | `scene` | `Scene` | `*string` | query | 否 | 发票pdf文件下载应用场景。固定为 INVOICE_EXPENSE 表示发票报销。 |
-| `skip_expense_progress_sync` | `SkipExpenseProgressSync` | `*string` | query | 否 | 是否跳过发票报销状态同步；当为true时，跳过报销状态同步校验。默认为false，需要先做报销状态同步 |
+| `skip_expense_progress_sync` | `SkipExpenseProgressSync` | `*bool` | query | 否 | 是否跳过发票报销状态同步；当为true时，跳过报销状态同步校验。默认为false，需要先做报销状态同步 |

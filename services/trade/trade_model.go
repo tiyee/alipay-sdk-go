@@ -16,41 +16,43 @@ const (
 // pageBizContent 是 page.pay/wap.pay 的 biz_content JSON 结构，
 // 字段名依据官方接口文档。
 type pageBizContent struct {
-	OutTradeNo     string          `json:"out_trade_no"`
-	TotalAmount    string          `json:"total_amount"`
-	Subject        string          `json:"subject"`
-	ProductCode    string          `json:"product_code"`
-	SellerID       *string         `json:"seller_id,omitempty"`
-	Body           *string         `json:"body,omitempty"`
-	GoodsDetail    []GoodsDetail   `json:"goods_detail,omitempty"`
-	TimeExpire     *string         `json:"time_expire,omitempty"`
-	TimeoutExpress *string         `json:"timeout_express,omitempty"`
-	QRPayMode      *string         `json:"qr_pay_mode,omitempty"`
-	QrPayTimeLimit *string         `json:"qr_pay_time_limit,omitempty"`
-	SettleInfo     *SettleInfo     `json:"settle_info,omitempty"`
-	ExtendParams   *ExtendParams   `json:"extend_params,omitempty"`
-	BusinessParams *BusinessParams `json:"business_params,omitempty"`
-	PassbackParams *string         `json:"passback_params,omitempty"`
+	OutTradeNo     string        `json:"out_trade_no"`
+	TotalAmount    string        `json:"total_amount"`
+	Subject        string        `json:"subject"`
+	ProductCode    string        `json:"product_code"`
+	Body           *string       `json:"body,omitempty"`
+	GoodsDetail    []GoodsDetail `json:"goods_detail,omitempty"`
+	TimeExpire     *string       `json:"time_expire,omitempty"`
+	TimeoutExpress *string       `json:"timeout_express,omitempty"`
+	QRPayMode      *QRPayMode    `json:"qr_pay_mode,omitempty"`
+	SettleInfo     *SettleInfo   `json:"settle_info,omitempty"`
+	ExtendParams   *ExtendParams `json:"extend_params,omitempty"`
+	BusinessParams *string       `json:"business_params,omitempty"`
+	PassbackParams *string       `json:"passback_params,omitempty"`
+	QRCodeWidth    *int64        `json:"qrcode_width,omitempty"`
+	QuitURL        *string       `json:"quit_url,omitempty"`
+	ExtUserInfo    *ExtUserInfo  `json:"ext_user_info,omitempty"`
+	SubMerchant    *SubMerchant  `json:"sub_merchant,omitempty"`
+	InvoiceInfo    *InvoiceInfo  `json:"invoice_info,omitempty"`
+	StoreID        *string       `json:"store_id,omitempty"`
+	RoyaltyInfo    *RoyaltyInfo  `json:"royalty_info,omitempty"`
 }
 
 // appBizContent 是 app.pay 的 biz_content JSON 结构，
 // 字段名依据官方接口文档与商家扣款场景文档。
 type appBizContent struct {
-	OutTradeNo     string          `json:"out_trade_no"`
-	TotalAmount    string          `json:"total_amount"`
-	Subject        string          `json:"subject"`
-	ProductCode    string          `json:"product_code"`
-	SellerID       *string         `json:"seller_id,omitempty"`
-	Body           *string         `json:"body,omitempty"`
-	GoodsDetail    []GoodsDetail   `json:"goods_detail,omitempty"`
-	TimeExpire     *string         `json:"time_expire,omitempty"`
-	TimeoutExpress *string         `json:"timeout_express,omitempty"`
-	SettleInfo     *SettleInfo     `json:"settle_info,omitempty"`
-	RoyaltyInfo    *RoyaltyInfo    `json:"royalty_info,omitempty"`
-	ExtendParams   *ExtendParams   `json:"extend_params,omitempty"`
-	BusinessParams *BusinessParams `json:"business_params,omitempty"`
-	SignParams     *SignParams     `json:"sign_params,omitempty"`
-	PassbackParams *string         `json:"passback_params,omitempty"`
+	OutTradeNo          string        `json:"out_trade_no"`
+	TotalAmount         string        `json:"total_amount"`
+	Subject             string        `json:"subject"`
+	ProductCode         ProductCode   `json:"product_code,omitempty"`
+	Body                *string       `json:"body,omitempty"`
+	GoodsDetail         []GoodsDetail `json:"goods_detail,omitempty"`
+	TimeExpire          *string       `json:"time_expire,omitempty"`
+	TimeoutExpress      *string       `json:"timeout_express,omitempty"`
+	ExtendParams        *ExtendParams `json:"extend_params,omitempty"`
+	AgreementSignParams *SignParams   `json:"agreement_sign_params,omitempty"`
+	PassbackParams      *string       `json:"passback_params,omitempty"`
+	ExtUserInfo         *ExtUserInfo  `json:"ext_user_info,omitempty"`
 }
 
 // TradeStatus 是交易状态，取值依据 alipay.trade.query 文档
@@ -160,12 +162,26 @@ const (
 	AccountTypeDefaultSettle AccountType = "defaultSettle"
 )
 
-// ProductCode 是预下单产品码，取值依据 alipay.trade.precreate 文档。
+// PaymentType 指定预下单的支付方式。
+type PaymentType string
+
+// PaymentTypeAgentPay 指定智能体 SDK 支付。
+const PaymentTypeAgentPay PaymentType = "agent_pay"
+
+// ProductCode 是交易产品码，取值由具体接口决定。
 type ProductCode string
 
 const (
 	// ProductCodeFaceToFacePayment 表示当面付产品，为默认值。
 	ProductCodeFaceToFacePayment ProductCode = "FACE_TO_FACE_PAYMENT"
+	// ProductCodeFastInstantTradePay 用于电脑网站支付。
+	ProductCodeFastInstantTradePay ProductCode = "FAST_INSTANT_TRADE_PAY"
+	// ProductCodeQuickWapWay 用于手机网站支付。
+	ProductCodeQuickWapWay ProductCode = "QUICK_WAP_WAY"
+	// ProductCodeQuickMSecurityPay 是普通 App 支付的默认产品码。
+	ProductCodeQuickMSecurityPay ProductCode = "QUICK_MSECURITY_PAY"
+	// ProductCodeCyclePayAuth 用于 App 支付并签约周期扣款。
+	ProductCodeCyclePayAuth ProductCode = "CYCLE_PAY_AUTH"
 )
 
 // CodeType 是预下单码类型，取值依据预下单文档；为空默认为订单码。
@@ -515,3 +531,279 @@ const (
 	// SettleOperationOnSettle 表示待结算。
 	SettleOperationOnSettle SettleOperationType = "on_settle"
 )
+
+// PaymentRoyaltyType 是支付请求 royalty_info 的分账类型。
+type PaymentRoyaltyType string
+
+// PaymentRoyaltyOrdinary 表示支付请求中的普通分账。
+const PaymentRoyaltyOrdinary PaymentRoyaltyType = "ROYALTY"
+
+// CloseExtendParams 是关闭交易的扩展参数。
+type CloseExtendParams struct {
+	// IsFulfilled 表示标识是否通过其他方式履约。
+	IsFulfilled *string `json:"is_fulfilled,omitempty"`
+}
+
+// SpecifiedChannelParams 是指定优先扣款渠道。
+type SpecifiedChannelParams struct {
+	// AssetTypeCode 表示资产类型编码，具体传参值请联系技术进行分配。
+	AssetTypeCode *string `json:"asset_type_code,omitempty"`
+	// InstID 表示机构描述。
+	InstID *string `json:"inst_id,omitempty"`
+}
+
+// SpecifiedDeductRuleParams 是商户指定扣款规则。
+type SpecifiedDeductRuleParams struct {
+	// SpecifiedMonthLimitAmount 表示用户自定义单月扣款额度，单位元，用于自动充场景下单月最大累计充值金额管控，商户侧传入。
+	SpecifiedMonthLimitAmount *string `json:"specified_month_limit_amount,omitempty"`
+	// SpecifiedPayAmount 表示签约时指定代扣金额，单位元，传入后后续代扣环节的金额必须等于该金额。
+	SpecifiedPayAmount *string `json:"specified_pay_amount,omitempty"`
+	// SpecifiedPayTriggerAmount 表示扣款条件额度数值，用于自动充场景下低于该额度时触发扣款，商户侧管控。
+	SpecifiedPayTriggerAmount *string `json:"specified_pay_trigger_amount,omitempty"`
+	// SpecifiedPayTriggerUnit 表示元/积分/游戏币。
+	SpecifiedPayTriggerUnit *string `json:"specified_pay_trigger_unit,omitempty"`
+}
+
+// SignMerchantParams 是协议签约的子商户信息。
+type SignMerchantParams struct {
+	// SubMerchantID 表示子商户的商户id。
+	SubMerchantID *string `json:"sub_merchant_id,omitempty"`
+	// SubMerchantName 表示子商户的商户名称。
+	SubMerchantName *string `json:"sub_merchant_name,omitempty"`
+	// SubMerchantServiceDescription 表示子商户的服务描述。
+	SubMerchantServiceDescription *string `json:"sub_merchant_service_description,omitempty"`
+	// SubMerchantServiceName 表示子商户的服务名称。
+	SubMerchantServiceName *string `json:"sub_merchant_service_name,omitempty"`
+}
+
+// SceneRuleParams 是周期扣款的场景规则。
+type SceneRuleParams struct {
+	// DiscountPeriod 表示在周期扣场景化模板中配置优惠类型为优惠期玩法时需要该参数，表示后续有多少期扣款可享受优惠，值为自然数代表周期。
+	DiscountPeriod *string `json:"discount_period,omitempty"`
+	// LowPricePeriod 表示在周期扣场景化模板中配置优惠类型为低价玩法时需要该参数，表示代扣低价期持续的时间。
+	LowPricePeriod *string `json:"low_price_period,omitempty"`
+}
+
+// ExtUserInfo 是外部指定买家的身份信息。
+type ExtUserInfo struct {
+	// CertNo 表示买家证件号。
+	CertNo *string `json:"cert_no,omitempty"`
+	// CertType 表示指定买家证件类型。
+	CertType *string `json:"cert_type,omitempty"`
+	// FixBuyer 表示是否强制校验买家身份。
+	FixBuyer *string `json:"fix_buyer,omitempty"`
+	// IdentityHash 表示买家加密身份信息。
+	IdentityHash *string `json:"identity_hash,omitempty"`
+	// MinAge 表示允许的最小买家年龄。
+	MinAge *string `json:"min_age,omitempty"`
+	// Mobile 表示指定买家手机号。
+	Mobile *string `json:"mobile,omitempty"`
+	// Name 表示指定买家姓名。
+	Name *string `json:"name,omitempty"`
+	// NeedCheckInfo 表示是否强制校验买家信息。
+	NeedCheckInfo *string `json:"need_check_info,omitempty"`
+}
+
+// LogisticsDetail 是订单物流信息。
+type LogisticsDetail struct {
+	// LogisticsType 表示物流类型。
+	LogisticsType *string `json:"logistics_type,omitempty"`
+}
+
+// ReceiverAddressInfo 是订单收货人及其地址。
+type ReceiverAddressInfo struct {
+	// Address 表示收货地址。
+	Address *string `json:"address,omitempty"`
+	// DivisionCode 表示中国标准城市区域码。
+	DivisionCode *string `json:"division_code,omitempty"`
+	// Mobile 表示收货人手机号。
+	Mobile *string `json:"mobile,omitempty"`
+	// Name 表示收货人的姓名。
+	Name *string `json:"name,omitempty"`
+	// Zip 表示收货地址邮编。
+	Zip *string `json:"zip,omitempty"`
+}
+
+// SubMerchant 是支付宝二级商户信息。
+type SubMerchant struct {
+	// MerchantID 是支付宝二级商户编号；直付通和机构间连场景必传。
+	MerchantID *string `json:"merchant_id,omitempty"`
+	// MerchantType 是二级商户编号类型；目前仅支持 alipay。
+	MerchantType *string `json:"merchant_type,omitempty"`
+}
+
+// EnterprisePayInfo 是因公支付返回信息。
+type EnterprisePayInfo struct {
+	// BizInfo 表示因公付业务信息。
+	BizInfo *string `json:"biz_info,omitempty"`
+	// InvoiceAmount 表示开票金额。
+	InvoiceAmount *string `json:"invoice_amount,omitempty"`
+	// IsUseEnterprisePay 表示是否包含因公付资产。
+	IsUseEnterprisePay *bool `json:"is_use_enterprise_pay,omitempty"`
+}
+
+// PayParams 是支付请求的异步和重试设置。
+type PayParams struct {
+	// AsyncType 表示普通异步支付, 传入该参数时，如果满足受理条件，会先同步受理支付，然后在异步调度推进支付。
+	AsyncType *string `json:"async_type,omitempty"`
+	// RetryType 表示重试类型，当async_type传入NORMAL_ASYNC时，可以设置该参数，选择是否要重试，retry_type 可选，不设置时，可重试。
+	RetryType *string `json:"retry_type,omitempty"`
+}
+
+// PromoParams 是支付优惠参数。
+type PromoParams struct {
+	// ActualOrderTime 表示存在延迟扣款这一类的场景，用这个时间表明用户发生交易的时间，比如说，在公交地铁场景，用户刷码出站的时间，和商户上送交易的时间是不一样的。
+	ActualOrderTime *string `json:"actual_order_time,omitempty"`
+}
+
+// BkAgentRespInfo 是间联机构交易返回信息。
+type BkAgentRespInfo struct {
+	// BindclrissrID 表示枚举值，01 银联；02 网联；03 连通等。
+	BindclrissrID *string `json:"bindclrissr_id,omitempty"`
+	// BindpyeracctbkID 表示付款机构在清算组织登记或分配的机构代码。
+	BindpyeracctbkID *string `json:"bindpyeracctbk_id,omitempty"`
+	// BindtrxID 表示原快捷交易流水号。
+	BindtrxID *string `json:"bindtrx_id,omitempty"`
+	// BkpyeruserCode 表示用户在银行付款账号的标记化处理编号。
+	BkpyeruserCode *string `json:"bkpyeruser_code,omitempty"`
+	// EstterLocation 表示设备推测位置。
+	EstterLocation *string `json:"estter_location,omitempty"`
+}
+
+// ChargeInfo 是交易收费信息。
+type ChargeInfo struct {
+	// ChargeFee 表示实收费用。
+	ChargeFee *string `json:"charge_fee,omitempty"`
+	// ChargeType 表示收单手续费trade，花呗分期手续hbfq，其他手续费charge。
+	ChargeType *string `json:"charge_type,omitempty"`
+	// IsRatingOnSwitch 表示是否合约指定收费账号出资，值为"Y"或"N"。
+	IsRatingOnSwitch *string `json:"is_rating_on_switch,omitempty"`
+	// IsRatingOnTradeReceiver 表示是否收款账号出资，值为"Y"或"N"。
+	IsRatingOnTradeReceiver *string `json:"is_rating_on_trade_receiver,omitempty"`
+	// OriginalChargeFee 表示原始费用。
+	OriginalChargeFee *string `json:"original_charge_fee,omitempty"`
+	// SubFeeDetailList 表示组合支付收费明细。
+	SubFeeDetailList []SubFee `json:"sub_fee_detail_list,omitempty"`
+	// SwitchFeeRate 表示签约费率。
+	SwitchFeeRate *string `json:"switch_fee_rate,omitempty"`
+}
+
+// SubFee 是收费分项明细。
+type SubFee struct {
+	// ChargeFee 表示实收费用。
+	ChargeFee *string `json:"charge_fee,omitempty"`
+	// OriginalChargeFee 表示原始费用。
+	OriginalChargeFee *string `json:"original_charge_fee,omitempty"`
+	// SwitchFeeRate 表示签约费率。
+	SwitchFeeRate *string `json:"switch_fee_rate,omitempty"`
+}
+
+// TapPayInfo 是碰一下支付的支付介质和优惠信息。
+type TapPayInfo struct {
+	// PaymentMediumType 表示碰一下支付的支付介质类型，标识当前支付为碰一下支付。
+	PaymentMediumType *string `json:"payment_medium_type,omitempty"`
+	// TotalDiscountAmount 表示碰一下支付的碰一下共减优惠金额。
+	TotalDiscountAmount *string `json:"total_discount_amount,omitempty"`
+	// TotalDiscountName 表示碰一下支付的碰一下共减金额展示名称。
+	TotalDiscountName *string `json:"total_discount_name,omitempty"`
+}
+
+// ExternalPayerInfo 是外部付款方身份信息。
+type ExternalPayerInfo struct {
+	// OutInstCardNo 表示机构卡信息。
+	OutInstCardNo *string `json:"out_inst_card_no,omitempty"`
+	// OutInstPayerInstID 表示机构编码。
+	OutInstPayerInstID *string `json:"out_inst_payer_inst_id,omitempty"`
+	// OutPayerAccountName 表示代理企业支付中，企业的名称。
+	OutPayerAccountName *string `json:"out_payer_account_name,omitempty"`
+}
+
+// FulfillmentDetail 是订单履约信息。
+type FulfillmentDetail struct {
+	// FulfillmentAmount 表示履约金额。
+	FulfillmentAmount *string `json:"fulfillment_amount,omitempty"`
+	// GmtPayment 表示履约支付时间。
+	GmtPayment *string `json:"gmt_payment,omitempty"`
+	// OutRequestNo 表示商户发起履约请求时，传入的out_request_no，标识一次请求的唯一id。
+	OutRequestNo *string `json:"out_request_no,omitempty"`
+}
+
+// HbFqPayInfo 是花呗分期付款信息。
+type HbFqPayInfo struct {
+	// FqAmount 表示用户使用花呗分期支付的金额数。
+	FqAmount *string `json:"fq_amount,omitempty"`
+	// FqInstID 表示提供分期服务的机构ID。
+	FqInstID *string `json:"fq_inst_id,omitempty"`
+	// UserInstallNum 表示用户使用花呗分期支付的分期数。
+	UserInstallNum *string `json:"user_install_num,omitempty"`
+}
+
+// IntactChargeInfo 是订单的完整收费记录。
+type IntactChargeInfo struct {
+	// ActualAmount 表示实际收费金额，单位元。
+	ActualAmount *string `json:"actual_amount,omitempty"`
+	// BillType 表示收费类型。
+	BillType *string `json:"bill_type,omitempty"`
+	// GmtPay 表示收费时间,时间精确到秒。
+	GmtPay *string `json:"gmt_pay,omitempty"`
+	// IsRefund 表示是否退费。
+	IsRefund *bool `json:"is_refund,omitempty"`
+	// OutBizNo 表示外部请求号。
+	OutBizNo *string `json:"out_biz_no,omitempty"`
+	// PlanAmount 表示应收费金额，单位元。
+	PlanAmount *string `json:"plan_amount,omitempty"`
+	// ProductName 表示收费产品。
+	ProductName *string `json:"product_name,omitempty"`
+	// ServiceTarget 表示收费唯一id。
+	ServiceTarget *string `json:"service_target,omitempty"`
+	// ServiceType 表示收费类型。
+	ServiceType *string `json:"service_type,omitempty"`
+	// Status 表示状态。
+	Status *string `json:"status,omitempty"`
+	// TargetAccountNo 表示收费目标账号。
+	TargetAccountNo *string `json:"target_account_no,omitempty"`
+	// TargetUserID 表示收费目标uid。
+	TargetUserID *string `json:"target_user_id,omitempty"`
+}
+
+// PaymentInfoWithID 是支付类型及其支付单号。
+type PaymentInfoWithID struct {
+	// PaymentIDs 表示支付单id。
+	PaymentIDs []string `json:"payment_ids,omitempty"`
+	// Type 表示支付资金类型。
+	Type *string `json:"type,omitempty"`
+}
+
+// QRPayMode 是电脑网站支付的扫码方式。
+type QRPayMode string
+
+const (
+	// QRPaySimple 使用简约前置二维码。
+	QRPaySimple QRPayMode = "0"
+	// QRPayEmbedded 使用前置二维码。
+	QRPayEmbedded QRPayMode = "1"
+	// QRPayRedirect 跳转支付宝扫码页面。
+	QRPayRedirect QRPayMode = "2"
+	// QRPayMini 使用迷你前置二维码。
+	QRPayMini QRPayMode = "3"
+	// QRPayCustomWidth 允许商户设置二维码宽度。
+	QRPayCustomWidth QRPayMode = "4"
+)
+
+// InvoiceInfo 是电脑网站支付的开票信息。
+type InvoiceInfo struct {
+	// KeyInfo 是商户开票信息。
+	KeyInfo InvoiceKeyInfo `json:"key_info"`
+	// Details 是支付宝约定格式的发票明细字符串。
+	Details string `json:"details"`
+}
+
+// InvoiceKeyInfo 是商户的开票标识和税号。
+type InvoiceKeyInfo struct {
+	// IsSupportInvoice 表示商户是否支持开票。
+	IsSupportInvoice bool `json:"is_support_invoice"`
+	// InvoiceMerchantName 是开票商户名称。
+	InvoiceMerchantName string `json:"invoice_merchant_name"`
+	// TaxNum 是商户纳税人识别号。
+	TaxNum string `json:"tax_num"`
+}

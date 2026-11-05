@@ -17,9 +17,9 @@ type DataDataServiceAdPromotePageBatchQueryRequest struct {
 	// Type 是推广页类型：COLLECT_INFO - 免费留资；TRADE - 付费留资； OPERATION_PAID - 运营商付费留资；待扩展。
 	Type *string `query:"type,omitempty"`
 	// PageNo 是分页参数之页数，从1开始。
-	PageNo *string `query:"page_no,omitempty"`
+	PageNo *int64 `query:"page_no,required"`
 	// PageSize 是分页参数之每页大小，最大1000。
-	PageSize *string `query:"page_size,omitempty"`
+	PageSize *int64 `query:"page_size,required"`
 }
 
 // DataDataServiceAdPromotePageDownloadRequest 是 alipay.data.dataservice.ad.promotepage.download 的 V3 query 请求参数。
@@ -29,13 +29,13 @@ type DataDataServiceAdPromotePageDownloadRequest struct {
 	// EndDate 是留资结束日期，格式：yyyy-mm-dd 或 yyyy-mm-dd hh:mm:ss;不能晚于当天。
 	EndDate *string `query:"end_date,omitempty"`
 	// PageNo 是分页参数之页数，从1开始。
-	PageNo *string `query:"page_no,omitempty"`
+	PageNo *int64 `query:"page_no,required"`
 	// PageSize 是分页参数之每页大小，最大1000。
-	PageSize *string `query:"page_size,omitempty"`
+	PageSize *int64 `query:"page_size,required"`
 	// BizToken 是代理商访问灯火平台的token。
 	BizToken *string `query:"biz_token,omitempty"`
 	// PrincipalTag 是商家标志。
 	PrincipalTag *string `query:"principal_tag,omitempty"`
 	// PromotePageId 是推广页id。
-	PromotePageId *string `query:"promote_page_id,omitempty"`
+	PromotePageId *int64 `query:"promote_page_id,required"`
 }

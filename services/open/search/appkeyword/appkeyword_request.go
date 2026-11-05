@@ -27,9 +27,9 @@ type SearchAppKeywordBatchQueryRequest struct {
 	// Status 是关键词的状态，枚举值，不传该字段表示查询所有状态
 	Status *string `json:"status,omitempty" query:"status,omitempty"`
 	// PageNumber 是当前页
-	PageNumber *string `json:"page_number,omitempty" query:"page_number,omitempty"`
+	PageNumber *int64 `json:"page_number,omitempty" query:"page_number,omitempty"`
 	// PageSize 是每页显示条数
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,omitempty"`
 }
 
 // SearchAppKeywordQueryStatusRequest is the request type for alipay.open.search.appkeyword.querystatus.

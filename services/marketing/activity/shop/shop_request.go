@@ -8,9 +8,9 @@ type ActivityShopBatchQueryRequest struct {
 	// ActivityId 是活动id
 	ActivityId string `json:"-" path:"activity_id"`
 	// PageNum 是分页查询页码。 	限制: 	必须为大于0的整数
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是分页查询单页数据条数。 	限制: 	1.必须为大于0的整数 	2.每页最大值为20
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 	// ProductVersion 是版本号		枚举值:	2.0.0
 	ProductVersion *string `json:"product_version,omitempty" query:"product_version,omitempty"`
 	// MerchantAccessMode 是商户接入模式

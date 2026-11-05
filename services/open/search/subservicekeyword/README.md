@@ -68,12 +68,12 @@
 
 请求约束：SearchSubServiceKeywordBatchQueryRequest is the request type for alipay.open.search.subservicekeyword.batchquery.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `target_appid` | `TargetAppid` | `*string` | query | 否 | 小程序id |
 | `status` | `Status` | `*string` | query | 否 | 审核状态，服务关键词的审核状态，枚举值，不传该字段表示查询所有状态 |
-| `page_number` | `PageNumber` | `*string` | query | 否 | 分页参数，分页查询时使用 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页参数，分页查询时使用 |
+| `page_number` | `PageNumber` | `*int64` | query | 是 | 分页参数，分页查询时使用 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页参数，分页查询时使用 |
 
 <a id="api-searchsubservicekeyworddelete"></a>
 

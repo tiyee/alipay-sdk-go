@@ -116,10 +116,10 @@
 
 知识库-问答-获取
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `ccs_instance_id` | `CcsInstanceId` | `*string` | query | 否 | 子部门ID，不传为默认部门 |
-| `id` | `Id` | `*string` | query | 否 | 文章ID |
+| `id` | `Id` | `*int64` | query | 是 | 文章ID |
 
 <a id="api-ccmswarticlemodify"></a>
 

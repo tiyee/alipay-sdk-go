@@ -16,11 +16,11 @@ type ActivityUserBatchQueryVoucherRequest struct {
 	// VoucherStatus 是券状态，其中已过期状态可查询6个月内的数据
 	VoucherStatus *string `json:"voucher_status,omitempty" query:"voucher_status,omitempty"`
 	// PageNum 是分页查询页码
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// MerchantAccessMode 是商户接入模式
 	MerchantAccessMode *string `json:"merchant_access_mode,omitempty" query:"merchant_access_mode,omitempty"`
 	// PageSize 是分页查询单页数据条数
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // ActivityUserQueryVoucherRequest is the query request model for alipay.marketing.activity.user.queryvoucher.

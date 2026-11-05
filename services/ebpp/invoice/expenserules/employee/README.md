@@ -46,14 +46,14 @@
 
 查询费控规则员工
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 共同账号ID |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号 |
 | `enterprise_id` | `EnterpriseId` | `*string` | query | 否 | 企业码企业id |
 | `standard_id` | `StandardId` | `*string` | query | 否 | 费控规则ID |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页数 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 页大小 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 页数 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 页大小 |
 
 <a id="api-invoiceexpenserulesemployeerulesquery"></a>
 
@@ -66,14 +66,14 @@
 
 分页查询指定员工绑定的所有费控规则，默认返回所有有效和无效规则，查询结果按费控规则的创建时间倒序
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 企业ID |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号 |
 | `employee_id` | `EmployeeId` | `*string` | query | 否 | 未切换open_id时使用此字段：员工ID |
 | `employee_open_id` | `EmployeeOpenId` | `*string` | query | 否 | 切换open_id后使用此字段：员工的open_id |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页码，默认值为1 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页行数，默认值为20 |
+| `page_num` | `PageNum` | `*int64` | query | 否 | 页码，默认值为1 |
+| `page_size` | `PageSize` | `*int64` | query | 否 | 每页行数，默认值为20 |
 
 <a id="api-invoiceexpenserulesgroupemployeemodify"></a>
 

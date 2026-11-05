@@ -55,6 +55,10 @@ type Participant struct {
 	CertNo *string `json:"cert_no,omitempty"`
 	// BankcardExtInfo 是银行卡扩展信息（转账到银行卡场景）。
 	BankcardExtInfo *BankcardExtInfo `json:"bankcard_ext_info,omitempty"`
+	// ExtInfo 表示描述参与方信息的扩展属性，使用前请与支付宝工程师确认。
+	ExtInfo *string `json:"ext_info,omitempty"`
+	// MerchantUserInfo 表示商户侧的参与方信息。
+	MerchantUserInfo *string `json:"merchant_user_info,omitempty"`
 }
 
 // BankcardExtInfo 是收款银行卡扩展信息。
@@ -93,4 +97,38 @@ func (t PayeeAccountType) IsKnown() bool {
 	default:
 		return false
 	}
+}
+
+// MultipleCurrencyDetail 是多币种转账明细。
+type MultipleCurrencyDetail struct {
+	// ExtInfo 表示扩展字段。
+	ExtInfo *string `json:"ext_info,omitempty"`
+	// PaymentAmount 表示支付金额，单位为该币种基础计价单位，如人民币为：元。
+	PaymentAmount *string `json:"payment_amount,omitempty"`
+	// PaymentCurrency 表示支付币种（元）。
+	PaymentCurrency *string `json:"payment_currency,omitempty"`
+	// SettlementAmount 表示清算金额，单位为该币种基础计价单位，如人民币为：元。
+	SettlementAmount *string `json:"settlement_amount,omitempty"`
+	// SettlementCurrency 表示清算币种（元）。
+	SettlementCurrency *string `json:"settlement_currency,omitempty"`
+	// TransAmount 表示转账金额，单位为该币种基础计价单位，如人民币为：元。
+	TransAmount *string `json:"trans_amount,omitempty"`
+	// TransCurrency 表示转账币种（元）。
+	TransCurrency *string `json:"trans_currency,omitempty"`
+}
+
+// SignData 是签名原始信息。
+type SignData struct {
+	// OriAppID 表示签名商户开放平台应用APPID。
+	OriAppID *string `json:"ori_app_id,omitempty"`
+	// OriCharSet 表示编码类型（大小写敏感）。
+	OriCharSet *string `json:"ori_char_set,omitempty"`
+	// OriOutBizNo 表示ori_out_biz_no_001。
+	OriOutBizNo *string `json:"ori_out_biz_no,omitempty"`
+	// OriSign 表示签名密文。
+	OriSign *string `json:"ori_sign,omitempty"`
+	// OriSignType 表示签名算法（大小写敏感）。
+	OriSignType *string `json:"ori_sign_type,omitempty"`
+	// PartnerID 表示商户支付宝账号id。
+	PartnerID *string `json:"partner_id,omitempty"`
 }

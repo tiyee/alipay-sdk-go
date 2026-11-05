@@ -49,7 +49,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `trade_no` | `TradeNo` | `string` | JSON body | 未标注 | 支付宝交易号 |
 | `out_request_no` | `OutRequestNo` | `string` | JSON body | 未标注 | 确认结算请求流水号，开发者自行生成并保证唯一性，作为业务幂等性控制<br>SDK 字段说明：确认结算请求流水号；由调用方生成并保证唯一，<br>用于业务幂等控制。 |
-| `settle_info` | `SettleInfo` | [`SettleInfo`](../README.md#model-settleinfo) | JSON body | 未标注 | 结算信息。 |
+| `settle_info` | `SettleInfo` | [`trade.SettleInfo`](../trade_decodenotification_model.go#L144) | JSON body | 未标注 | 结算信息。 |
 | `extend_params` | `ExtendParams` | [`*SettleConfirmExtendParams`](#model-settleconfirmextendparams) | JSON body | 未标注 | 确认结算扩展参数。 |
 
 注意事项：
@@ -78,6 +78,7 @@
 | `biz_product` | `BizProduct` | `*string` | JSON body | 未标注 | 收单产品码，商家和支付宝签约的产品码 |
 | `merchant_info` | `MerchantInfo` | [`*SettleEntity`](#model-settleentity) | JSON body | 未标注 | 结算主体信息。 |
 | `query_his_date` | `QueryHisDate` | `*string` | JSON body | 未标注 | 当trade_no不为空时，该字段不生效。 查询历史日期，格式为 yyyyMMdd ，取值范围为昨日起至往前30日内； 不传入时，查询实时待结算余额返回； 传入过去某一天日期，查询对应日期的日终待结算余额返回（注意：日常场景下，昨日日终待结算余额只可在当天 02:00 后查询，在当天 02:00 前查询返回查询错误；大促场景下昨日日终可查时间会适当延后）； 传入过去某一天非近30天内，返回参数错误。<br>SDK 字段说明：查询历史日期（yyyyMMdd，昨日起 30 日内）；<br>trade_no 不为空时该字段不生效。 |
+| `extend_params` | `ExtendParams` | `*string` | JSON body | 未标注 | 扩展参数。 |
 
 ## 嵌套请求参数
 

@@ -26,6 +26,9 @@ func NewService(executor core.Executor) (*Service, error) {
 // CcmSwTreeCategoryBatchQuery calls alipay.iservice.ccm.sw.treecategory.batchquery (GET /v3/alipay/iservice/ccm/sw/treecategory/batchquery).
 // Official V3 contract: https://opendocs.alipay.com/open-v3/24848e83_alipay.iservice.ccm.sw.treecategory.batchquery
 func (s *Service) CcmSwTreeCategoryBatchQuery(ctx context.Context, req CcmSwTreeCategoryBatchQueryRequest, opts ...core.CallOption) (*core.Response[CcmSwTreeCategoryBatchQueryResponse], error) {
+	if (req.PageNum == nil) != (req.PageSize == nil) {
+		return nil, &core.ValidationError{Field: "page_num", Reason: "page_num and page_size must be provided together"}
+	}
 	return core.ExecuteJSON[CcmSwTreeCategoryBatchQueryRequest, CcmSwTreeCategoryBatchQueryResponse](ctx, s.executor, core.OperationSpec{
 		Method: "alipay.iservice.ccm.sw.treecategory.batchquery", HTTPMethod: core.HTTPMethodGet, Path: "/v3/alipay/iservice/ccm/sw/treecategory/batchquery",
 		ParameterMode: core.ParameterModeQuery, AuthRequirement: core.AuthRequirementAny,

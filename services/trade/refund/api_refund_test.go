@@ -2,6 +2,7 @@ package refund_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -308,5 +309,24 @@ func TestNewAPIValidations(t *testing.T) {
 				t.Error("validation failure must not send request")
 			}
 		})
+	}
+}
+
+func TestRefundCurrencyOnRequestAndResponse(t *testing.T) {
+	svc, executor := newRecordingService(t)
+	executor.result = verifiedResult(`{"refund_currency":"USD","refund_fee":"10.01"}`)
+	response, err := svc.Refund(t.Context(), refund.RefundRequest{TradeNo: "order", OutRequestNo: ptr("refund"), RefundAmount: "10.01", RefundCurrency: ptr("USD")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Currency string `json:"refund_currency"`
+		Amount   string `json:"refund_amount"`
+	}
+	if err = json.Unmarshal(executor.req.Params.JSON, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Currency != "USD" || body.Amount != "10.01" || response.Data.RefundCurrency == nil || *response.Data.RefundCurrency != "USD" {
+		t.Fatalf("unexpected refund currency: %+v, %+v", body, response.Data)
 	}
 }

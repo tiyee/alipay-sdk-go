@@ -100,7 +100,7 @@ V3 GET）的请求：order_id 与 out_biz_no 二选一，同时提供时优先
 - 官方接口：[`alipay.fund.trans.payee.bind.query`](https://opendocs.alipay.com/open-v3/03fe4a0d_alipay.fund.trans.payee.bind.query?scene=common&pathHash=377d1f29)
 - 路由：`GET /v3/alipay/fund/trans/payee/bind/query`
 - 请求类型：[PayeeBindQueryRequest](trans_request.go#L36)
-- 响应类型：[PayeeBindQueryResponse](trans_response.go#L53)
+- 响应类型：[PayeeBindQueryResponse](trans_response.go#L79)
 
 资金收款账号绑定关系查询
 
@@ -119,7 +119,7 @@ V3 GET）的请求：order_id 与 out_biz_no 二选一，同时提供时优先
 - 官方接口：[`alipay.fund.trans.uni.transfer`](https://opendocs.alipay.com/open-v3/26a22ad7_alipay.fund.trans.uni.transfer?scene=common%2Cca56bca529e64125a2786703c6192d41%2C66dd06f5a923403393b85de68d3c0055&pathHash=9b52afe2)
 - 路由：`POST /v3/alipay/fund/trans/uni/transfer`
 - 请求类型：[UniTransferRequest](trans_request.go#L83)
-- 响应类型：[UniTransferResponse](trans_response.go#L61)
+- 响应类型：[UniTransferResponse](trans_response.go#L87)
 
 单笔转账接口是基于支付宝的资金处理能力，为了满足支付宝商家的转账需求，针对有部分开发能力的商家，提供通过API接口完成企业自身支付宝账户到支付宝账户的转账功能。 适用于：C2C现金红包的红包领取、B2C现金红包的红包发放、B2C单笔转账到支付宝账户等。
 说明：本接口为公用接口，参数说明不针对特定产品。不同产品入参请参考对应产品文档。
@@ -139,10 +139,12 @@ payee_info 必填；产品码决定取值范围。
 | `order_title` | `OrderTitle` | `*string` | JSON body | 未标注 | 转账业务的标题，用于在支付宝用户的账单里显示 |
 | `remark` | `Remark` | `*string` | JSON body | 未标注 | 业务备注 |
 | `business_params` | `BusinessParams` | `*string` | JSON body | 未标注 | 转账业务请求的扩展参数，支持传入的扩展参数如下： sub_biz_scene 子业务场景，红包业务必传，C2C现金红包、B2C现金红包均需传入，取值REDPACKET<br>SDK 字段说明：转账业务请求的扩展参数（JSON 文本，<br>如子业务场景 sub_biz_scene=REDPACKET）。 |
-| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数，如果请求时传递了该参数，则异步通知商户时会回传该参数。<br>SDK 字段说明：公用回传参数，异步通知时原样回传。 |
+| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数，异步通知时原样回传。 |
 | `original_order_id` | `OriginalOrderID` | `*string` | JSON body | 未标注 | 原支付宝业务单号。 |
 | `transfer_scene_name` | `TransferSceneName` | `*string` | JSON body | 未标注 | 该笔转账使用的转账场景，商户可前往【[支付宝商家平台-资金管理-转账场景](https://b.alipay.com/page/bizfund/transferScene/list)】中查看/申明转账场景。<br> 目前支持以下枚举值：现金营销、企业退款、佣金报酬、业务结算、二手回收、公益补助、行政补贴和退款、保险理赔<br> 注意：26年及以后新接入商户必须传入该字段。<br>SDK 字段说明：该笔转账使用的转账场景，见商家平台<br>资金管理-转账场景。 |
 | `transfer_scene_report_infos` | `TransferSceneReportInfos` | [`[]TransferSceneReportInfo`](#model-transferscenereportinfo) | JSON body | 未标注 | 转账场景信息，包含转账场景信息类型和转账场景信息描述。需按该笔转账使用的转账场景准确填写<br> 注意：26年及以后新接入商户必须传入该字段。<br>SDK 字段说明：转账场景信息；26 年及以后新接入<br>商户必须传入，字段说明见官方转账场景信息字段说明。 |
+| `mutiple_currency_detail` | `MultipleCurrencyDetail` | [`*MultipleCurrencyDetail`](trans_model.go#L103) | JSON body | 未标注 | 多币种转账金额与币种明细。 |
+| `sign_data` | `SignData` | [`*SignData`](trans_model.go#L121) | JSON body | 未标注 | 转账请求的原始签名信息。 |
 
 注意事项：
 
@@ -155,8 +157,8 @@ payee_info 必填；产品码决定取值范围。
 
 - 官方接口：[`alipay.fund.trans.toaccount.transfer`](https://opendocs.alipay.com/open-v3/53a4ce8e_alipay.fund.trans.toaccount.transfer)
 - 路由：`POST /v3/alipay/fund/trans/toaccount/transfer`
-- 请求类型：[ToAccountTransferRequest](trans_request.go#L122)
-- 响应类型：[ToAccountTransferResponse](trans_response.go#L86)
+- 请求类型：[ToAccountTransferRequest](trans_request.go#L126)
+- 响应类型：[ToAccountTransferResponse](trans_response.go#L112)
 
 单笔转账到支付宝账户接口是基于支付宝的资金处理能力，为了满足支付宝商家向其他支付宝账户转账的需求，针对有部分开发能力的商家，提供通过API接口完成支付宝账户间的转账的功能。
 该接口适用行业较广，比如商家间的货款结算，商家给个人用户发放佣金等。（目前已对该接口能力做了升级，后续建议调用新接口alipay.fund.trans.uni.transfer）
@@ -170,7 +172,7 @@ payee_type 必填；付款方和收款方不能是同一个账户。
 | `out_biz_no` | `OutBizNo` | `string` | JSON body | 未标注 | 商户转账唯一订单号。发起转账来源方定义的转账单据ID，用于将转账回执通知给来源方。<br> 不同来源方给出的ID可以重复，同一个来源方必须保证其ID的唯一性。<br> 只支持半角英文、数字，及“-”、“_”。<br>SDK 字段说明：商户转账唯一订单号；同一来源方必须保证唯一，<br>只支持半角英文、数字及 “-”“_”。 |
 | `amount` | `TransAmount` | `string` | JSON body | 未标注 | 转账金额，单位：元。<br> 只支持2位小数，小数点前最大支持13位，金额必须大于等于0.1元。 <br> 最大转账金额以实际签约的限额为准。<br>SDK 字段说明：转账金额，单位为元，只支持 2 位小数，<br>金额必须大于等于 0.1 元。 |
 | `payee_account` | `PayeeAccount` | `string` | JSON body | 未标注 | 收款方账户。与payee_type配合使用。付款方和收款方不能是同一个账户。<br>SDK 字段说明：收款方账户，与 PayeeType 配合使用。 |
-| `payee_type` | `PayeeType` | [`PayeeAccountType`](trans_model.go#L78) | JSON body | 未标注 | 收款方账户类型。可取值： 1、ALIPAY_USERID：支付宝账号对应的支付宝唯一用户号。以2088开头的16位纯数字组成。 2、ALIPAY_LOGONID：支付宝登录号，支持邮箱和手机号格式。 2、ALIPAY_OPENID：支付宝openid |
+| `payee_type` | `PayeeType` | [`PayeeAccountType`](trans_model.go#L82) | JSON body | 未标注 | 收款方账户类型。可取值： 1、ALIPAY_USERID：支付宝账号对应的支付宝唯一用户号。以2088开头的16位纯数字组成。 2、ALIPAY_LOGONID：支付宝登录号，支持邮箱和手机号格式。 2、ALIPAY_OPENID：支付宝openid |
 | `payee_real_name` | `PayeeRealName` | `*string` | JSON body | 未标注 | 收款方真实姓名（最长支持100个英文/50个汉字）。<br> 如果本参数不为空，则会校验该账户在支付宝登记的实名是否与收款方真实姓名一致。<br>SDK 字段说明：收款方真实姓名；非空时校验收款账户实名一致。 |
 | `payer_real_name` | `PayerRealName` | `*string` | JSON body | 未标注 | 付款方真实姓名（最长支持100个英文/50个汉字）。<br> 如果本参数不为空，则会校验该账户在支付宝登记的实名是否与付款方真实姓名一致。<br>SDK 字段说明：付款方真实姓名；非空时校验付款账户实名一致。 |
 | `payer_show_name` | `PayerShowName` | `*string` | JSON body | 未标注 | 付款方姓名（最长支持100个英文/50个汉字）。显示在收款方的账单详情页。如果该字段不传，则默认显示付款方的支付宝认证姓名或单位名称。<br>SDK 字段说明：付款方显示名称，展示在收款方的账单详情页。 |
@@ -187,8 +189,8 @@ payee_type 必填；付款方和收款方不能是同一个账户。
 
 - 官方接口：[`alipay.fund.trans.pay`](https://opendocs.alipay.com/pre-apis/05xggg)
 - 路由：`POST /v3/alipay/fund/trans/pay`
-- 请求类型：[PayRequest](trans_request.go#L147)
-- 响应类型：[PayResponse](trans_response.go#L97)
+- 请求类型：[PayRequest](trans_request.go#L151)
+- 响应类型：[PayResponse](trans_response.go#L123)
 
 付款方通过协议、二维码、声波、人脸等方式，通过本接口提交给支付宝直接完成支付。
 
@@ -221,14 +223,14 @@ out_biz_no、trans_amount、product_code、payee_info 必填。
 
 - 官方接口：[`alipay.fund.trans.refund`](https://opendocs.alipay.com/open-v3/0c6ff10a_alipay.fund.trans.refund)
 - 路由：`POST /v3/alipay/fund/trans/refund`
-- 请求类型：[RefundRequest](trans_request.go#L181)
-- 响应类型：[RefundResponse](trans_response.go#L111)
+- 请求类型：[RefundRequest](trans_request.go#L185)
+- 响应类型：[RefundResponse](trans_response.go#L137)
 
 当资金支付一段时间后，由于收款方一直没有收钱（比如抢红包），可以通过退款接口将资金退换给付款方。支付宝将会按照退款规则将支付款按原路退到付款方帐号上。
 交易超过约定时间（签约时设置的可退款时间）的订单无法进行退款。支付宝退款支持单笔交易分多次退回，多次退款需要提交原支付订单的商户订单号和设置不同的退款单号。一笔退款失败后重新提交，要采用原来的退款单号。总退款金额不能超过（用户实际支付金额-已领红包）的金额。
 
 请求约束：RefundRequest 是 alipay.fund.trans.refund（资金退回）的请求。
-order_id、out_request_no、refund_amount 必填；退回失败重新提交
+order_id、biz_scene、out_request_no、refund_amount 必填；退回失败重新提交
 必须沿用原 out_request_no。写操作：SDK 不自动重试。
 
 | 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
@@ -236,11 +238,11 @@ order_id、out_request_no、refund_amount 必填；退回失败重新提交
 | `order_id` | `OrderID` | `string` | JSON body | 未标注 | 发红包时支付宝返回的支付宝订单号order_id。<br>SDK 字段说明：原转账的支付宝订单号。 |
 | `out_request_no` | `OutRequestNo` | `string` | JSON body | 未标注 | 标识一次资金退回请求，一笔资金退回失败后重新提交，要采用原来的资金退回单号。总退款金额不能超过用户实际支付金额。<br>SDK 字段说明：资金退回请求号；重新提交必须沿用原单号。 |
 | `refund_amount` | `RefundAmount` | `string` | JSON body | 未标注 | 需要退款的金额，该金额不能大于订单金额,单位为元，支持两位小数<br>SDK 字段说明：退款金额，不能大于订单金额，单位为元。 |
-| `refund_reason` | `RefundReason` | `*string` | JSON body | 未标注 | 资金退回原因。<br>此字段存在于 SDK，官方快照未列出，业务支持条件尚未确认。 |
 | `remark` | `Remark` | `*string` | JSON body | 未标注 | 资金退回备注 |
-| `biz_scene` | `BizScene` | `*string` | JSON body | 未标注 | 场景码 |
+| `biz_scene` | `BizScene` | `string` | JSON body | 未标注 | 场景码。 |
 | `product_code` | `ProductCode` | `*string` | JSON body | 未标注 | 产品码 |
-| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数，如果请求时传递了该参数，则异步通知商户时会回传该参数。 |
+| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数。 |
+| `business_params` | `BusinessParams` | `*string` | JSON body | 未标注 | JSON格式，传递业务扩展参数，使用前请与支付宝工程师联系！。 |
 
 注意事项：
 
@@ -252,7 +254,7 @@ order_id、out_request_no、refund_amount 必填；退回失败重新提交
 
 ### AuthInfo
 
-类型定义：[AuthInfo](trans_model.go#L81)。
+类型定义：[AuthInfo](trans_model.go#L85)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -263,7 +265,7 @@ order_id、out_request_no、refund_amount 必填；退回失败重新提交
 
 ### BankcardExtInfo
 
-类型定义：[BankcardExtInfo](trans_model.go#L61)。
+类型定义：[BankcardExtInfo](trans_model.go#L65)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -288,6 +290,8 @@ order_id、out_request_no、refund_amount 必填；退回失败重新提交
 | `cert_type` | `CertType` | `*string` | 未标注 | 参与方的证件类型。 |
 | `cert_no` | `CertNo` | `*string` | 未标注 | 参与方的证件号，支持身份证号、护照号。 |
 | `bankcard_ext_info` | `BankcardExtInfo` | [`*BankcardExtInfo`](#model-bankcardextinfo) | 未标注 | 银行卡扩展信息（转账到银行卡场景）。 |
+| `ext_info` | `ExtInfo` | `*string` | 未标注 | 描述参与方信息的扩展属性，使用前请与支付宝工程师确认。 |
+| `merchant_user_info` | `MerchantUserInfo` | `*string` | 未标注 | 商户侧的参与方信息。 |
 
 <a id="model-transferscenereportinfo"></a>
 

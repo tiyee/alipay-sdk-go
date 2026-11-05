@@ -49,3 +49,33 @@ func TestPreCreateRequestAndResponse(t *testing.T) {
 		t.Error("unset optional fields must be omitted")
 	}
 }
+
+func TestPreCreatePaymentAndSettlementFieldPlacement(t *testing.T) {
+	svc, executor := newRecordingService(t)
+	executor.result = verifiedResult("{}")
+	_, err := svc.PreCreate(t.Context(), trade.PreCreateRequest{
+		OutTradeNo: "order", TotalAmount: "1.00", Subject: "item", PaymentType: ptr(trade.PaymentTypeAgentPay),
+		BkAgentReqInfo: &trade.BkAgentReqInfo{AcqCode: ptr("agent")},
+		SettleInfo:     &trade.SettleInfo{SettlePeriodTime: ptr("7d"), SettleDetailInfos: []trade.SettleDetailInfo{{TransInType: "defaultSettle"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(executor.req.Params.JSON, &body); err != nil {
+		t.Fatal(err)
+	}
+	if string(body["payment_type"]) != `"agent_pay"` || string(body["bkagent_req_info"]) != `{"acq_code":"agent"}` {
+		t.Fatalf("bad payment fields %s", executor.req.Params.JSON)
+	}
+	var settlement struct {
+		Time    string            `json:"settle_period_time"`
+		Details []json.RawMessage `json:"settle_detail_infos"`
+	}
+	if err := json.Unmarshal(body["settle_info"], &settlement); err != nil {
+		t.Fatal(err)
+	}
+	if settlement.Time != "7d" || len(settlement.Details) != 1 || string(settlement.Details[0]) != `{"trans_in_type":"defaultSettle"}` {
+		t.Fatalf("bad settlement: %s", body["settle_info"])
+	}
+}

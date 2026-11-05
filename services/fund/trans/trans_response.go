@@ -47,6 +47,32 @@ type CommonQueryResponse struct {
 	PayFundOrderID *string `json:"pay_fund_order_id,omitempty"`
 	// PassbackParams 是商户回传参数。
 	PassbackParams *string `json:"passback_params,omitempty"`
+	// ArrivalTimeEnd 表示预计到账时间，转账到银行卡专用，格式为yyyy-MM-dd HH:mm:ss，转账受理失败不返回。
+	ArrivalTimeEnd *string `json:"arrival_time_end,omitempty"`
+	// DeductBillInfo 表示商户查询代扣订单信息时返回其在代扣请求中传入的账单属性。
+	DeductBillInfo *string `json:"deduct_bill_info,omitempty"`
+	// FailInstErrorCode 表示查询到的订单状态为FAIL失败时，返回具体报错银行的错误码。
+	FailInstErrorCode *string `json:"fail_inst_error_code,omitempty"`
+	// FailInstName 表示查询到的订单状态为FAIL失败时，返回具体的报错银行名称。
+	FailInstName *string `json:"fail_inst_name,omitempty"`
+	// FailInstReason 表示查询到的订单状态为FAIL失败时，返回具体的原因。
+	FailInstReason *string `json:"fail_inst_reason,omitempty"`
+	// InflowSettleSerialNo 表示金融机构发起签约类、支付类、差错类业务时，应为每笔业务分配唯一的交易流水号。
+	InflowSettleSerialNo *string `json:"inflow_settle_serial_no,omitempty"`
+	// OrderFee 表示预计收费金额（元），转账到银行卡专用，数字格式，精确到小数点后2位，转账失败或转账受理失败不返回。
+	OrderFee *string `json:"order_fee,omitempty"`
+	// SettleSerialNo 表示金融机构发起签约类、支付类、差错类业务时，应为每笔业务分配唯一的交易流水号。
+	SettleSerialNo *string `json:"settle_serial_no,omitempty"`
+	// SubOrderErrorCode 表示特殊场景提供，当子单出现异常导致主单失败或者退款时，会提供此字段，用于透出子单具体的错误场景。
+	SubOrderErrorCode *string `json:"sub_order_error_code,omitempty"`
+	// SubOrderFailReason 表示特殊场景提供，当子单出现异常导致主单失败或者退款时，会提供此字段，用于透出子单具体的错误场景。
+	SubOrderFailReason *string `json:"sub_order_fail_reason,omitempty"`
+	// SubOrderStatus 表示退款子单失败状态。
+	SubOrderStatus *string `json:"sub_order_status,omitempty"`
+	// SubPayFundOrderID 表示支付宝支付子单资金流水号，当二阶段主子单场景时需要使用该单号去下载电子回单。
+	SubPayFundOrderID *string `json:"sub_pay_fund_order_id,omitempty"`
+	// TransferBillInfo 表示商户在查询代发订单信息时返回其在代发请求中传入的账单属性。
+	TransferBillInfo *string `json:"transfer_bill_info,omitempty"`
 }
 
 // PayeeBindQueryResponse 是收款账号绑定查询的业务响应。

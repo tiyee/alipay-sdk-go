@@ -92,11 +92,14 @@ func main() {
 	}
 
 	ctx := context.Background()
+	mode, width := trade.QRPayCustomWidth, int64(180)
 	pageReq := trade.PagePayRequest{
 		OutTradeNo:  "demo-page-0001",
 		TotalAmount: "0.01",
 		Subject:     "示例商品",
-		ProductCode: "FAST_INSTANT_TRADE_PAY",
+		ProductCode: trade.ProductCodeFastInstantTradePay,
+		QRPayMode:   &mode,
+		QRCodeWidth: &width,
 		ReturnURL:   strPtr("https://merchant.example.com/return"),
 	}
 	form, err := products.PagePayForm(ctx, pageReq)
@@ -111,7 +114,8 @@ func main() {
 		OutTradeNo:  "demo-wap-0001",
 		TotalAmount: "0.01",
 		Subject:     "示例商品",
-		ProductCode: "QUICK_WAP_WAY",
+		ProductCode: trade.ProductCodeQuickWapWay,
+		QuitURL:     strPtr("https://merchant.example.com/quit"),
 	})
 	if err != nil {
 		logger.Error("build wap pay url", slog.String("err", err.Error()))
@@ -124,7 +128,7 @@ func main() {
 		OutTradeNo:  "demo-app-0001",
 		TotalAmount: "0.01",
 		Subject:     "示例商品",
-		ProductCode: "QUICK_MSECURITY_PAY",
+		ProductCode: trade.ProductCodeQuickMSecurityPay,
 	})
 	if err != nil {
 		logger.Error("build app pay order string", slog.String("err", err.Error()))

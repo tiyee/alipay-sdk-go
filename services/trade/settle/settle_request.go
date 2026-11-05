@@ -34,6 +34,8 @@ type SettleReceivablesQueryRequest struct {
 	// QueryHisDate 是查询历史日期（yyyyMMdd，昨日起 30 日内）；
 	// trade_no 不为空时该字段不生效。
 	QueryHisDate *string `json:"query_his_date,omitempty"`
+	// ExtendParams 表示扩展参数。
+	ExtendParams *string `json:"extend_params,omitempty"`
 }
 
 func (r SettleConfirmRequest) validate() error {

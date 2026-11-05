@@ -44,7 +44,7 @@
 
 请求约束：AdvanceConsultRequest 是 alipay.trade.advance.consult（订单咨询，
 V3 GET）的请求：垫资咨询场景 alipay_user_id 必选；单笔订单风险
-预评估场景（consult_scene=ORDER_RISK_EVALUATION）需传入协议号等。
+预评估场景（consult_scene=ORDER_RISK_EVALUATION）必传非空协议号。若传预估金额，其范围为 0.01 至 100000000 元。响应顶层的待还总额按字符串读取，订单明细内的待还金额按整数读取。
 
 | 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- | --- |

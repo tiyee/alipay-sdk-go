@@ -91,7 +91,7 @@ func ExampleService_MiniCategoryQuery() {
 		return
 	}
 
-	isFilter := "True"
+	isFilter := true
 	response, err := svc.MiniCategoryQuery(ctx, category.MiniCategoryQueryRequest{
 		IsFilter: &isFilter,
 	})

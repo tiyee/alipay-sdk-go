@@ -92,8 +92,8 @@ func ExampleService_MiniTemplateUsageQuery() {
 	}
 
 	templateId := "1"
-	pageNum := "1"
-	pageSize := "10"
+	pageNum := int64(1)
+	pageSize := int64(10)
 	response, err := svc.MiniTemplateUsageQuery(ctx, template.MiniTemplateUsageQueryRequest{
 		TemplateId: &templateId,
 		PageNum:    &pageNum,

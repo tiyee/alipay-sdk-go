@@ -24,7 +24,7 @@ type CcmInstanceGetRequest struct {
 // CcmInstanceQueryRequest is the query request model for alipay.iservice.ccm.instance.query.
 type CcmInstanceQueryRequest struct {
 	// PageNum 是查询结果的页码，起始值为 1，默认值为 1
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是分页查询时设置的每页记录数，最大值 100 行，默认为 10
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }

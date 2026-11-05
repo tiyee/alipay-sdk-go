@@ -90,12 +90,12 @@
 
 请求约束：AppServiceListQueryRequest is the request type for alipay.open.app.service.list.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `service_name` | `ServiceName` | `*string` | query | 否 | 服务名称 |
 | `category_id` | `CategoryId` | `*string` | query | 否 | 类目 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页记录数 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页码 |
+| `page_size` | `PageSize` | `*int64` | query | 否 | 每页记录数 |
+| `page_num` | `PageNum` | `*int64` | query | 否 | 页码 |
 
 <a id="api-appservicequery"></a>
 

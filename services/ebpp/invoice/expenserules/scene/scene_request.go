@@ -71,7 +71,7 @@ type InvoiceExpenseRulesSceneRuleQueryRequest struct {
 	// StandardId 是费控规则ID
 	StandardId *string `json:"standard_id,omitempty" query:"standard_id,omitempty"`
 	// PageNum 是页数
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是页大小
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }

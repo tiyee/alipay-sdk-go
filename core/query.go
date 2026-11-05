@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 // QueryEncoder 返回 V3 query 参数编码器：按 struct 字段声明顺序，
-// 依据 `query:"name[,omitempty]"` 标签将请求值写入 url.Values。
+// 依据 query 标签将请求值写入 url.Values，可用 omitempty 和 required 指定字段选项。
 //
+// required 标签要求参数存在。必填指针使用 nil 表示缺失，非 nil 保留显式零值。
 // 支持的值类型：string、bool、整数及其具名类型、上述类型的指针
 // （nil 跳过，非 nil 保留显式零值）与切片（逐元素输出）。不支持嵌套 struct 与其他类型，
 // 编码时返回错误；V3 GET 接口的参数都是扁平字符串。
@@ -52,25 +54,19 @@ func encodeQuery(value any) (url.Values, error) {
 		if !ok || tag == "-" {
 			continue
 		}
-		name, omitEmpty := parseQueryTag(tag)
+		name, opts, _ := strings.Cut(tag, ",")
+		options := strings.Split(opts, ",")
 		if name == "" {
 			return nil, fmt.Errorf("alipay: query encode: field %s has empty query name", field.Name)
 		}
-		if err := appendQueryField(form, name, omitEmpty, rv.Field(i)); err != nil {
+		if err := appendQueryField(form, name, slices.Contains(options, "omitempty"), rv.Field(i)); err != nil {
 			return nil, fmt.Errorf("alipay: query encode field %s: %w", field.Name, err)
+		}
+		if slices.Contains(options, "required") && !form.Has(name) {
+			return nil, &ValidationError{Field: name, Reason: "required query parameter is missing"}
 		}
 	}
 	return form, nil
-}
-
-func parseQueryTag(tag string) (name string, omitEmpty bool) {
-	name, opts, _ := strings.Cut(tag, ",")
-	for _, opt := range strings.Split(opts, ",") {
-		if opt == "omitempty" {
-			omitEmpty = true
-		}
-	}
-	return name, omitEmpty
 }
 
 // appendQueryField 写入单个标量、指针或切片字段。

@@ -44,7 +44,7 @@ func TestTransferSpecs(t *testing.T) {
 			name: "资金退回",
 			call: func(s *trans.Service, e *recordingExecutor) error {
 				_, err := s.Refund(context.Background(), trans.RefundRequest{
-					OrderID: "O1", OutRequestNo: "R1", RefundAmount: "1.00"})
+					OrderID: "O1", OutRequestNo: "R1", RefundAmount: "1.00", BizScene: "REFUND"})
 				return err
 			},
 			wantMethod: "alipay.fund.trans.refund",

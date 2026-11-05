@@ -135,7 +135,7 @@ out_request_no 与 royalty_parameters 必选；多个分账条款要求出账方
 
 ### BatchRoyaltyClause
 
-类型定义：[BatchRoyaltyClause](batch_model.go#L19)。
+类型定义：[BatchRoyaltyClause](batch_model.go#L21)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -148,17 +148,17 @@ out_request_no 与 royalty_parameters 必选；多个分账条款要求出账方
 | `trans_in_entity_type` | `TransInEntityType` | `*string` | 未标注 | 分账转入主体类型。 SecondMerchant：分账转入主体为二级商户 Store: 分账转入主体为门店 |
 | `trans_in_entity_id` | `TransInEntityID` | `*string` | 未标注 | 分账转出主体账 号。<br> 当分账转出主体类型为SecondMerchant，本参数为二级商户的SecondMerchantID<br> 当分账转出类型为Store，本参数为StoreID<br>SDK 字段说明：分账转入主体账号。 |
 | `trans_in_entity_biz_type` | `TransInEntityBizType` | `*string` | 未标注 | 分账账户业务类型，目前仅支持已结算类型 settled<br>SDK 字段说明：分账转入主体业务类型（目前仅支持 settled）。 |
-| `trans_in_sub_merchant` | `TransInSubMerchant` | [`*SubMerchant`](#model-submerchant) | 未标注 | 分账转入方二级商户信息。 |
+| `trans_in_sub_merchant` | `TransInSubMerchant` | [`*trade.SubMerchant`](../trade_model.go#L628) | 未标注 | 分账转入方二级商户信息。 |
 | `trans_out_entity_type` | `TransOutEntityType` | `*string` | 未标注 | 分账转出主体类型。 SecondMerchant：结算主体为二级商户 Store: 结算主体为门店 |
 | `trans_out_entity_id` | `TransOutEntityID` | `*string` | 未标注 | 分账转出主体账。<br> 当分账转出主体类型为SecondMerchant，本参数为二级商户的SecondMerchantId<br> 当分账转出类型为Store，本参数为StoreID<br>SDK 字段说明：分账转出主体账号。 |
 | `trans_out_entity_biz_type` | `TransOutEntityBizType` | `*string` | 未标注 | 分账转出方主体业务类型，目前仅支持已结算类型 settled |
-| `trans_out_sub_merchant` | `TransOutSubMerchant` | [`*SubMerchant`](#model-submerchant) | 未标注 | 分账转出方二级商户信息。 |
+| `trans_out_sub_merchant` | `TransOutSubMerchant` | [`*trade.SubMerchant`](../trade_model.go#L628) | 未标注 | 分账转出方二级商户信息。 |
 
 <a id="model-settleclause"></a>
 
 ### SettleClause
 
-类型定义：[SettleClause](batch_model.go#L88)。
+类型定义：[SettleClause](batch_model.go#L90)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -171,15 +171,4 @@ out_request_no 与 royalty_parameters 必选；多个分账条款要求出账方
 | `settle_account_entity` | `SettleAccountEntity` | `*string` | 未标注 | 结算账号所属于的结算主体类型。 secondMerchant 二级商户的结算账号 store 门店的结算账号 如果不填，默认为settleEntityType对应的类型<br>SDK 字段说明：结算账号所属的结算主体类型。 |
 | `amount` | `Amount` | `*string` | 未标注 | 结算金额，单位为元 |
 | `currency` | `Currency` | `*string` | 未标注 | 结算币种，支持人民币：CNY<br>SDK 字段说明：结算币种；目前支持人民币 CNY。 |
-| `sub_merchant` | `SubMerchant` | [`*SubMerchant`](#model-submerchant) | 未标注 | 二级商户信息。 |
-
-<a id="model-submerchant"></a>
-
-### SubMerchant
-
-类型定义：[SubMerchant](batch_model.go#L113)。
-
-| 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
-| --- | --- | --- | --- | --- |
-| `merchant_id` | `MerchantID` | `*string` | 未标注 | 支付宝二级商户编号。 间连受理商户的支付宝商户编号，通过间连商户入驻接口后由支付宝生成。 直付通和机构间连业务场景下必传。<br>SDK 字段说明：支付宝二级商户编号；直付通和机构间连场景必传。 |
-| `merchant_type` | `MerchantType` | `*string` | 未标注 | 二级商户编号类型。 枚举值： alipay:支付宝分配的间联商户编号； 目前仅支持alipay，默认可以不传。<br>SDK 字段说明：二级商户编号类型；目前仅支持 alipay。 |
+| `sub_merchant` | `SubMerchant` | [`*trade.SubMerchant`](../trade_model.go#L628) | 未标注 | 二级商户信息。 |

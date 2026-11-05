@@ -121,7 +121,6 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 | --- | --- | --- | --- | --- | --- |
 | `biz_date` | `BizDate` | `*string` | query | 否 | 查询指定自然日的起初余额和期末余额，biz_date与biz_month传入参数互斥<br>SDK 字段说明：查询指定自然日（yyyy-MM-dd）的期初与期末余额。 |
 | `biz_month` | `BizMonth` | `*string` | query | 否 | 查询指定自然月的起初余额和期末余额，biz_date与biz_month传入参数互斥<br>SDK 字段说明：查询指定自然月（yyyy-MM）的期初与期末余额。 |
-| `bill_user_id` | `BillUserID` | `*string` | query | 未标注 | 目标查询账户；仅支持部分场景。<br>此字段存在于 SDK，官方快照未列出，业务支持条件尚未确认。 |
 
 注意事项：
 
@@ -133,7 +132,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.accountlog.query`](https://opendocs.alipay.com/open-v3/4cce9615_alipay.data.bill.accountlog.query)
 - 路由：`GET /v3/alipay/data/bill/accountlog/query`
-- 请求类型：[BillAccountLogRequest](bill_request.go#L44)
+- 请求类型：[BillAccountLogRequest](bill_request.go#L42)
 - 响应类型：[BillAccountLogResponse](bill_response.go#L35)
 
 为支付宝商家提供支付宝账户的账务流水信息，供对账使用。
@@ -166,7 +165,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.accountbookereceipt.apply`](https://opendocs.alipay.com/pre-apis/05wyde)
 - 路由：`POST /v3/alipay/data/bill/accountbookereceipt/apply`
-- 请求类型：[DataBillAccountBookEReceiptApplyRequest](bill_request.go#L109)
+- 请求类型：[DataBillAccountBookEReceiptApplyRequest](bill_request.go#L107)
 - 响应类型：[DataBillAccountBookEReceiptApplyResponse](bill_response.go#L47)
 
 申请子账本电子回单（子账本业务定制接口）
@@ -184,7 +183,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.accountbookereceipt.query`](https://opendocs.alipay.com/open-v3/6ce2ea1b_alipay.data.bill.accountbookereceipt.query)
 - 路由：`GET /v3/alipay/data/bill/accountbookereceipt/query`
-- 请求类型：[DataBillAccountBookEReceiptQueryRequest](bill_request.go#L147)
+- 请求类型：[DataBillAccountBookEReceiptQueryRequest](bill_request.go#L145)
 - 响应类型：[DataBillAccountBookEReceiptQueryResponse](bill_response.go#L53)
 
 电子签章申请分两个步骤： 1、使用alipay.data.bill.ereceipt.apply创建申请，并获取file_id信息。 2、等待一段时间后，使用file_id查询alipay.data.bill.ereceipt.query申请信息。 单个申请建议每5分钟查询一次状态。汇总回单建议30分钟查询一次
@@ -204,7 +203,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.bail.query`](https://opendocs.alipay.com/open-v3/4421b78a_alipay.data.bill.bail.query)
 - 路由：`GET /v3/alipay/data/bill/bail/query`
-- 请求类型：[DataBillBailQueryRequest](bill_request.go#L159)
+- 请求类型：[DataBillBailQueryRequest](bill_request.go#L157)
 - 响应类型：[DataBillBailQueryResponse](bill_response.go#L63)
 
 为支付宝商家提供支付宝账户保证金信息，供对账使用。
@@ -225,7 +224,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.bizfundagent.query`](https://opendocs.alipay.com/open-v3/9b60baa5_alipay.data.bill.bizfundagent.query)
 - 路由：`GET /v3/alipay/data/bill/bizfundagent/query`
-- 请求类型：[DataBillBizFundAgentQueryRequest](bill_request.go#L173)
+- 请求类型：[DataBillBizFundAgentQueryRequest](bill_request.go#L171)
 - 响应类型：[DataBillBizFundAgentQueryResponse](bill_response.go#L69)
 
 用于ISV代理商户查询商户的资金业务账单
@@ -248,7 +247,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.buy.query`](https://opendocs.alipay.com/open-v3/83504d51_alipay.data.bill.buy.query)
 - 路由：`GET /v3/alipay/data/bill/buy/query`
-- 请求类型：[DataBillBuyQueryRequest](bill_request.go#L191)
+- 请求类型：[DataBillBuyQueryRequest](bill_request.go#L189)
 - 响应类型：[DataBillBuyQueryResponse](bill_response.go#L81)
 
 为支付宝商家提供支付宝账户买入交易信息，供对账使用。
@@ -271,7 +270,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.ereceipt.apply`](https://opendocs.alipay.com/open-v3/46460043_alipay.data.bill.ereceipt.apply)
 - 路由：`POST /v3/alipay/data/bill/ereceipt/apply`
-- 请求类型：[DataBillEReceiptApplyRequest](bill_request.go#L121)
+- 请求类型：[DataBillEReceiptApplyRequest](bill_request.go#L119)
 - 响应类型：[DataBillEReceiptApplyResponse](bill_response.go#L93)
 
 支持商家下载多种类型支付宝资金凭证。包括：余额收支证明、余额收支流水证明、转入转出收支证明、收支汇总证明（日汇总）以及收支汇总证明（月汇总）。
@@ -291,7 +290,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.ereceipt.query`](https://opendocs.alipay.com/open-v3/65fde737_alipay.data.bill.ereceipt.query)
 - 路由：`GET /v3/alipay/data/bill/ereceipt/query`
-- 请求类型：[DataBillEReceiptQueryRequest](bill_request.go#L209)
+- 请求类型：[DataBillEReceiptQueryRequest](bill_request.go#L207)
 - 响应类型：[DataBillEReceiptQueryResponse](bill_response.go#L99)
 
 电子签章申请分两个步骤：
@@ -311,7 +310,7 @@ V3 GET）的请求；查询自身账户时无需传 bill_user_id。
 
 - 官方接口：[`alipay.data.bill.ereceiptagent.apply`](https://opendocs.alipay.com/open-v3/d8c0f195_alipay.data.bill.ereceiptagent.apply)
 - 路由：`POST /v3/alipay/data/bill/ereceiptagent/apply`
-- 请求类型：[DataBillEReceiptAgentApplyRequest](bill_request.go#L131)
+- 请求类型：[DataBillEReceiptAgentApplyRequest](bill_request.go#L129)
 - 响应类型：[DataBillEReceiptAgentApplyResponse](bill_response.go#L109)
 
 ISV代理商户，申请商户的资金业务回单。
@@ -332,7 +331,7 @@ ISV代理商户，申请商户的资金业务回单。
 
 - 官方接口：[`alipay.data.bill.sell.query`](https://opendocs.alipay.com/open-v3/3c1a5835_alipay.data.bill.sell.query)
 - 路由：`GET /v3/alipay/data/bill/sell/query`
-- 请求类型：[DataBillSellQueryRequest](bill_request.go#L215)
+- 请求类型：[DataBillSellQueryRequest](bill_request.go#L213)
 - 响应类型：[DataBillSellQueryResponse](bill_response.go#L115)
 
 为支付宝商家提供支付宝账户卖出交易信息，供对账使用。
@@ -355,7 +354,7 @@ ISV代理商户，申请商户的资金业务回单。
 
 - 官方接口：[`alipay.data.bill.transfer.query`](https://opendocs.alipay.com/open-v3/8ddb5fed_alipay.data.bill.transfer.query)
 - 路由：`GET /v3/alipay/data/bill/transfer/query`
-- 请求类型：[DataBillTransferQueryRequest](bill_request.go#L233)
+- 请求类型：[DataBillTransferQueryRequest](bill_request.go#L231)
 - 响应类型：[DataBillTransferQueryResponse](bill_response.go#L127)
 
 为支付宝商家提供支付宝账户充值，转账，提现信息，供对账使用。
@@ -376,7 +375,7 @@ ISV代理商户，申请商户的资金业务回单。
 
 - 官方接口：[`alipay.data.bill.transferaccountbook.query`](https://opendocs.alipay.com/pre-apis/05wycr)
 - 路由：`GET /v3/alipay/data/bill/transferaccountbook/query`
-- 请求类型：[DataBillTransferAccountBookQueryRequest](bill_request.go#L247)
+- 请求类型：[DataBillTransferAccountBookQueryRequest](bill_request.go#L245)
 - 响应类型：[DataBillTransferAccountBookQueryResponse](bill_response.go#L139)
 
 子账本充提转账单查询（子账本业务定制接口）

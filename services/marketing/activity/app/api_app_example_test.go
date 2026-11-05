@@ -90,7 +90,7 @@ func ExampleService_ActivityAppBatchQuery() {
 	}
 
 	merchantId := "2088202967380463"
-	pageNum := "1"
+	pageNum := int64(1)
 	response, err := svc.ActivityAppBatchQuery(ctx, app.ActivityAppBatchQueryRequest{
 		ActivityId: "2016042700826004508401111111",
 		MerchantId: &merchantId,

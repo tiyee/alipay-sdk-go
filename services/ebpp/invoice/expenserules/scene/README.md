@@ -98,11 +98,11 @@
 
 查询费控规则信息
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 企业ID |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号 |
 | `enterprise_id` | `EnterpriseId` | `*string` | query | 否 | 企业码企业id |
 | `standard_id` | `StandardId` | `*string` | query | 否 | 费控规则ID |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页数 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 页大小 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 页数 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 页大小 |

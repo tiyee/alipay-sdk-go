@@ -112,11 +112,11 @@
 
 分页查询角色
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `name` | `Name` | `*string` | query | 否 | 角色名称 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 查询结果的页码，起始值为 1，默认值为 1 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页查询时设置的每页记录数，最大值 100 行，默认为 10 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 查询结果的页码，起始值为 1，默认值为 1 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页查询时设置的每页记录数，最大值 100 行，默认为 10 |
 | `ccs_instance_id` | `CcsInstanceId` | `*string` | query | 否 | 部门id（即租户实例ID、数据权限ID） |
 
 ## 使用示例

@@ -59,8 +59,8 @@
 
 - 官方接口：[`alipay.trade.pay`](https://opendocs.alipay.com/open-v3/08c7f9f8_alipay.trade.pay)
 - 路由：`POST /v3/alipay/trade/pay`
-- 请求类型：[PayRequest](trade_request.go#L96)
-- 响应类型：[PayResponse](trade_response.go#L81)
+- 请求类型：[PayRequest](trade_request.go#L117)
+- 响应类型：[PayResponse](trade_response.go#L167)
 
 收银员使用扫码设备读取用户手机支付宝“付款码”获取设备（如扫码枪）读取用户手机支付宝的付款码信息后，将二维码或条码信息通过本接口上送至支付宝发起支付。
 
@@ -74,12 +74,12 @@
 | `out_trade_no` | `OutTradeNo` | `string` | JSON body | 未标注 | 商户订单号。 由商家自定义，64个字符以内，仅支持字母、数字、下划线且需保证在商户端不重复。<br>SDK 字段说明：商户订单号：64 字符以内，仅支持字母、数字、下划线，<br>且需保证在商户端不重复。 |
 | `total_amount` | `TotalAmount` | `string` | JSON body | 未标注 | 订单总金额。 单位为元，精确到小数点后两位，取值范围：[0.01,100000000] 。<br>SDK 字段说明：订单总金额，两位小数，取值范围 [0.01,100000000]。 |
 | `subject` | `Subject` | `string` | JSON body | 未标注 | 订单标题。 注意：256个字符以内，不可使用特殊字符，如 /，=，& 等。<br>SDK 字段说明：订单标题；不可使用 / = & 等特殊字符。 |
-| `scene` | `Scene` | [`*PayScene`](trade_model.go#L247) | JSON body | 未标注 | 支付场景。枚举值： bar_code：当面付条码支付场景； security_code：当面付刷脸支付场景，对应的auth_code为fp开头的刷脸标识串； 周期扣款或代扣场景无需传入，协议号通过agreement_params参数传递； 支付宝预授权和新当面资金授权场景无需传入，授权订单号通过 auth_no字段传入。 默认值为bar_code。<br>SDK 字段说明：支付场景：bar_code（条码支付）或 security_code（刷脸支付）；<br>周期扣款或代扣场景无需传入。 |
+| `scene` | `Scene` | [`*PayScene`](trade_model.go#L263) | JSON body | 未标注 | 支付场景。枚举值： bar_code：当面付条码支付场景； security_code：当面付刷脸支付场景，对应的auth_code为fp开头的刷脸标识串； 周期扣款或代扣场景无需传入，协议号通过agreement_params参数传递； 支付宝预授权和新当面资金授权场景无需传入，授权订单号通过 auth_no字段传入。 默认值为bar_code。<br>SDK 字段说明：支付场景：bar_code（条码支付）或 security_code（刷脸支付）；<br>周期扣款或代扣场景无需传入。 |
 | `auth_code` | `AuthCode` | `*string` | JSON body | 未标注 | 支付授权码。 当面付场景传买家的付款码（25~30开头的长度为16~24位的数字，实际字符串长度以开发者获取的付款码长度为准）或者刷脸标识串（fp开头的35位字符串）； 周期扣款或代扣场景无需传入，协议号通过agreement_params参数传递； 支付宝预授权和新当面资金授权场景无需传入，授权订单号通过 auth_no字段传入。 注：交易的买家与卖家不能相同。<br>SDK 字段说明：买家付款码（25~30 开头的 16~24 位数字）或刷脸标识串<br>（fp 开头的 35 位字符串）；当面付场景必选。 |
 | `auth_no` | `AuthNo` | `*string` | JSON body | 未标注 | 资金预授权单号。 支付宝预授权和新当面资金授权场景下必填。<br>SDK 字段说明：资金预授权单号；支付宝预授权与新当面资金授权场景必填。 |
 | `auth_confirm_mode` | `AuthConfirmMode` | `*string` | JSON body | 未标注 | 预授权确认模式。 适用于支付宝预授权和新当面资金授权场景。枚举值： COMPLETE：转交易完成后解冻剩余冻结金额； NOT_COMPLETE：转交易完成后不解冻剩余冻结金额； 默认值为NOT_COMPLETE。 |
 | `agreement_params` | `AgreementParams` | [`*AgreementParams`](#model-agreementparams) | JSON body | 未标注 | 周期扣款或代扣场景的协议参数。 |
-| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L164) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； [CYCLE_PAY_AUTH](https://opensupport.alipay.com/support/codelab/detail/807/1419)：周期扣款产品； GENERAL_WITHHOLDING：代扣产品； [PRE_AUTH_ONLINE](https://opensupport.alipay.com/support/codelab/detail/712/1471)：支付宝预授权产品； PRE_AUTH：新当面资金授权产品； 默认值为FACE_TO_FACE_PAYMENT。 注意：非当面付产品使用本接口时，本参数必填。请传入对应产品码。<br>SDK 字段说明：产品码，默认 FACE_TO_FACE_PAYMENT。 |
+| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L172) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； [CYCLE_PAY_AUTH](https://opensupport.alipay.com/support/codelab/detail/807/1419)：周期扣款产品； GENERAL_WITHHOLDING：代扣产品； [PRE_AUTH_ONLINE](https://opensupport.alipay.com/support/codelab/detail/712/1471)：支付宝预授权产品； PRE_AUTH：新当面资金授权产品； 默认值为FACE_TO_FACE_PAYMENT。 注意：非当面付产品使用本接口时，本参数必填。请传入对应产品码。<br>SDK 字段说明：产品码，默认 FACE_TO_FACE_PAYMENT。 |
 | `seller_id` | `SellerID` | `*string` | JSON body | 未标注 | 卖家支付宝用户ID。 当需要指定收款账号时，通过该参数传入，如果该值为空，则默认为商户签约账号对应的支付宝用户ID。 收款账号优先级规则：门店绑定的收款账户&gt;请求传入的seller_id&gt;商户签约账号对应的支付宝用户ID； 注：直付通和机构间联场景下seller_id无需传入或者保持跟pid一致； 如果传入的seller_id与pid不一致，需要联系支付宝小二配置收款关系； 支付宝预授权和新当面资金授权场景下必填。<br>SDK 字段说明：卖家支付宝用户 ID；收款账户优先级见官方文档。 |
 | `buyer_id` | `BuyerID` | `*string` | JSON body | 未标注 | 买家支付宝用户ID。 支付宝预授权和新当面资金授权场景下必填，其它场景不需要传入。<br>SDK 字段说明：买家支付宝用户 ID；预授权场景必填，其它场景无需传入。 |
 | `buyer_open_id` | `BuyerOpenID` | `*string` | JSON body | 未标注 | 买家支付宝用户唯一标识 |
@@ -94,7 +94,24 @@
 | `royalty_info` | `RoyaltyInfo` | [`*RoyaltyInfo`](#model-royaltyinfo) | JSON body | 未标注 | 分账信息。 |
 | `extend_params` | `ExtendParams` | [`*ExtendParams`](#model-extendparams) | JSON body | 未标注 | 业务扩展参数。 |
 | `business_params` | `BusinessParams` | [`*BusinessParams`](#model-businessparams) | JSON body | 未标注 | 与支付宝约定的直传业务信息。 |
-| `query_options` | `QueryOptions` | [`[]PayQueryOption`](trade_model.go#L263) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制同步需要额外返回的信息字段，数组格式。包括但不限于：["fund_bill_list","voucher_detail_list","enterprise_pay_info","discount_goods_detail","discount_amount","mdiscount_amount"]<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `query_options` | `QueryOptions` | [`[]PayQueryOption`](trade_model.go#L279) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制同步需要额外返回的信息字段，数组格式。包括但不限于：["fund_bill_list","voucher_detail_list","enterprise_pay_info","discount_goods_detail","discount_amount","mdiscount_amount"]<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `advance_payment_type` | `AdvancePaymentType` | `*string` | JSON body | 未标注 | 支付模式类型,若值为ENJOY_PAY_V2表示当前交易允许走先享后付2.0垫资。 |
+| `alipay_store_id` | `AlipayStoreID` | `*string` | JSON body | 未标注 | 支付宝店铺编号。 |
+| `bkagent_req_info` | `BkAgentReqInfo` | [`*BkAgentReqInfo`](trade_decodenotification_model.go#L226) | JSON body | 未标注 | 收单机构上送的间联交易信息。 |
+| `disable_pay_channels` | `DisablePayChannels` | `*string` | JSON body | 未标注 | 禁用支付渠道。 |
+| `discountable_amount` | `DiscountableAmount` | `*string` | JSON body | 未标注 | 可打折金额。 |
+| `ext_user_info` | `ExtUserInfo` | [`*ExtUserInfo`](trade_model.go#L588) | JSON body | 未标注 | 指定买家的身份信息。 |
+| `is_async_pay` | `IsAsyncPay` | `*bool` | JSON body | 未标注 | 是否异步支付，传入true时，表明本次期望走异步支付，会先将支付请求受理下来，再异步推进。 |
+| `merchant_order_no` | `MerchantOrderNo` | `*string` | JSON body | 未标注 | 商户的原始订单号。 |
+| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数。 |
+| `pay_params` | `PayParams` | [`*PayParams`](trade_model.go#L646) | JSON body | 未标注 | 异步支付与重试参数。 |
+| `promo_params` | `PromoParams` | [`*PromoParams`](trade_model.go#L654) | JSON body | 未标注 | 优惠业务参数。 |
+| `request_org_pid` | `RequestOrgPID` | `*string` | JSON body | 未标注 | 收单机构(例如银行）的标识，填写该机构在支付宝的pid。 |
+| `settle_currency` | `SettleCurrency` | `*string` | JSON body | 未标注 | 结算币种。 |
+| `sub_merchant` | `SubMerchant` | [`*SubMerchant`](trade_model.go#L628) | JSON body | 未标注 | 二级商户信息。 |
+| `terminal_params` | `TerminalParams` | `*string` | JSON body | 未标注 | IOT设备信息。 |
+| `trans_currency` | `TransCurrency` | `*string` | JSON body | 未标注 | 标价币种,  total_amount 对应的币种单位。 |
+| `undiscountable_amount` | `UndiscountableAmount` | `*string` | JSON body | 未标注 | 不可打折金额。 |
 
 注意事项：
 
@@ -108,8 +125,8 @@ AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
 
 - 官方接口：[`alipay.trade.create`](https://opendocs.alipay.com/open-v3/bf4eae5e_alipay.trade.create)
 - 路由：`POST /v3/alipay/trade/create`
-- 请求类型：[CreateRequest](trade_request.go#L156)
-- 响应类型：[CreateResponse](trade_response.go#L129)
+- 请求类型：[CreateRequest](trade_request.go#L211)
+- 响应类型：[CreateResponse](trade_response.go#L271)
 
 商户通过该接口进行交易的创建下单
 
@@ -126,7 +143,7 @@ AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
 | `buyer_id` | `BuyerID` | `*string` | JSON body | 未标注 | 买家支付宝用户ID。 2088开头的16位纯数字，小程序场景下获取用户ID请参考：[用户授权](https://opendocs.alipay.com/mini/introduce/authcode); 其它场景下获取用户ID请参考：[网页授权获取用户信息](https://opendocs.alipay.com/open/284/106001/#s4); 注：交易的买家与卖家不能相同。<br>SDK 字段说明：买家的支付宝用户 ID（与 BuyerOpenID、BuyerLogonID 三选一）。 |
 | `buyer_open_id` | `BuyerOpenID` | `*string` | JSON body | 未标注 | 买家支付宝用户唯一标识 |
 | `buyer_logon_id` | `BuyerLogonID` | `*string` | JSON body | 未标注 | 买家支付宝登录账号。 建议通过open_id来传递买家信息。 |
-| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L164) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； 默认值为FACE_TO_FACE_PAYMENT。 |
+| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L172) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； 默认值为FACE_TO_FACE_PAYMENT。 |
 | `seller_id` | `SellerID` | `*string` | JSON body | 未标注 | 卖家支付宝用户ID。 当需要指定收款账号时，通过该参数传入，如果该值为空，则默认为商户签约账号对应的支付宝用户ID。 收款账号优先级规则：门店绑定的收款账户&gt;请求传入的seller_id&gt;商户签约账号对应的支付宝用户ID； 注：直付通和机构间联场景下seller_id无需传入或者保持跟pid一致； 如果传入的seller_id与pid不一致，需要联系支付宝小二配置收款关系；<br>SDK 字段说明：卖家支付宝用户 ID；收款账户优先级见官方文档。 |
 | `body` | `Body` | `*string` | JSON body | 未标注 | 订单附加信息。 如果请求时传递了该参数，将在异步通知、对账单中原样返回，同时会在商户和用户的pc账单详情中作为交易描述展示<br>SDK 字段说明：订单附加信息，将在异步通知、对账单中原样返回。 |
 | `goods_detail` | `GoodsDetail` | [`[]GoodsDetail`](#model-goodsdetail) | JSON body | 未标注 | 订单包含的商品列表信息，json格式。<br>SDK 字段说明：订单包含的商品列表，上限 150 条。 |
@@ -137,7 +154,7 @@ AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
 | `agreement_sign_params` | `AgreementSignParams` | [`*SignParams`](#model-signparams) | JSON body | 未标注 | 支付并签约场景的签约参数；字段与必填<br>关系按官方商家扣款场景文档核验（app.pay 与 create 复用同一模型）。 |
 | `extend_params` | `ExtendParams` | [`*ExtendParams`](#model-extendparams) | JSON body | 未标注 | 业务扩展参数。 |
 | `business_params` | `BusinessParams` | [`*BusinessParams`](#model-businessparams) | JSON body | 未标注 | 与支付宝约定的直传业务信息。 |
-| `query_options` | `QueryOptions` | [`[]PayQueryOption`](trade_model.go#L263) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制需要额外返回的信息字段，数组格式。包括但不限于：["enterprise_pay_info","hyb_amount"]<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `query_options` | `QueryOptions` | [`[]PayQueryOption`](trade_model.go#L279) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制需要额外返回的信息字段，数组格式。包括但不限于：["enterprise_pay_info","hyb_amount"]<br>SDK 字段说明：同步额外返回的信息字段。 |
 | `merchant_order_no` | `MerchantOrderNo` | `*string` | JSON body | 未标注 | 商户的原始订单号 |
 | `store_id` | `StoreID` | `*string` | JSON body | 未标注 | 商户门店编号。 指商户创建门店时输入的门店编号。 |
 | `operator_id` | `OperatorID` | `*string` | JSON body | 未标注 | 商户操作员编号。 |
@@ -146,6 +163,15 @@ AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
 | `enable_pay_channels` | `EnablePayChannels` | `*string` | JSON body | 未标注 | 指定支付渠道。 用户只能使用指定的渠道进行支付，多个渠道以逗号分割。 与disable_pay_channels互斥，支持传入的值：[渠道列表](https://docs.open.alipay.com/common/wifww7)。 注：如果传入了指定支付渠道，则用户只能用指定内的渠道支付，包括营销渠道也要指定才能使用。该参数可能导致用户支付受限，慎用。<br>SDK 字段说明：指定支付渠道列表（逗号分割）。 |
 | `discountable_amount` | `DiscountableAmount` | `*string` | JSON body | 未标注 | 可打折金额。 参与优惠计算的金额，单位为元，精确到小数点后两位，取值范围[0.01,100000000]。 如果同时传入了【可打折金额】、【不可打折金额】和【订单总金额】，则必须满足如下条件：【订单总金额】=【可打折金额】+【不可打折金额】。 如果订单金额全部参与优惠计算，则【可打折金额】和【不可打折金额】都无需传入。<br>SDK 字段说明：可打折金额；<br>与 TotalAmount 同传时须满足 TotalAmount = DiscountableAmount + UndiscountableAmount。 |
 | `undiscountable_amount` | `UndiscountableAmount` | `*string` | JSON body | 未标注 | 不可打折金额。 不参与优惠计算的金额，单位为元，精确到小数点后两位，取值范围[0.01,100000000]。 如果同时传入了【可打折金额】、【不可打折金额】和【订单总金额】，则必须满足如下条件：【订单总金额】=【可打折金额】+【不可打折金额】。 如果订单金额全部参与优惠计算，则【可打折金额】和【不可打折金额】都无需传入。 |
+| `alipay_store_id` | `AlipayStoreID` | `*string` | JSON body | 未标注 | 支付宝店铺编号。 |
+| `bkagent_req_info` | `BkAgentReqInfo` | [`*BkAgentReqInfo`](trade_decodenotification_model.go#L226) | JSON body | 未标注 | 收单机构上送的间联交易信息。 |
+| `ext_user_info` | `ExtUserInfo` | [`*ExtUserInfo`](trade_model.go#L588) | JSON body | 未标注 | 指定买家的身份信息。 |
+| `logistics_detail` | `LogisticsDetail` | [`*LogisticsDetail`](trade_model.go#L608) | JSON body | 未标注 | 订单物流信息。 |
+| `op_app_id` | `OpAppID` | `*string` | JSON body | 未标注 | 小程序支付必传的实际经营主体小程序应用 ID。 |
+| `op_buyer_open_id` | `OpBuyerOpenID` | `*string` | JSON body | 未标注 | 买家支付宝用户唯一标识（商户实际经营主体的小程序应用关联的买家open_id）。 |
+| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数。 |
+| `receiver_address_info` | `ReceiverAddressInfo` | [`*ReceiverAddressInfo`](trade_model.go#L614) | JSON body | 未标注 | 收货人和收货地址。 |
+| `sub_merchant` | `SubMerchant` | [`*SubMerchant`](trade_model.go#L628) | JSON body | 未标注 | 二级商户信息。 |
 
 注意事项：
 
@@ -157,8 +183,8 @@ AgreementParams 传入协议号。写操作：SDK 不自动重试，超时后的
 
 - 官方接口：[`alipay.trade.cancel`](https://opendocs.alipay.com/open-v3/cd7d54d2_alipay.trade.cancel?scene=common&pathHash=cb83add6)
 - 路由：`POST /v3/alipay/trade/cancel`
-- 请求类型：[CancelRequest](trade_request.go#L218)
-- 响应类型：[CancelResponse](trade_response.go#L138)
+- 请求类型：[CancelRequest](trade_request.go#L291)
+- 响应类型：[CancelResponse](trade_response.go#L280)
 
 支付交易返回失败或支付系统超时，调用该接口撤销交易。如果此订单用户支付失败，支付宝系统会将此订单关闭；如果用户支付成功，支付宝系统会将此订单资金退还给用户。
 注意：只有发生支付系统超时或者支付结果未知时可调用撤销，其他正常支付的单如需实现相同功能请调用申请退款API。提交支付交易后调用【查询订单API】，没有明确的支付结果再调用【撤销订单API】。
@@ -182,7 +208,7 @@ trade_no 与 out_trade_no 二选一且不能同时为空。
 
 - 官方接口：[`alipay.trade.query`](https://opendocs.alipay.com/open-v3/d33bf036_alipay.trade.query)
 - 路由：`POST /v3/alipay/trade/query`
-- 请求类型：[QueryRequest](trade_request.go#L13)
+- 请求类型：[QueryRequest](trade_request.go#L14)
 - 响应类型：[QueryResponse](trade_response.go#L5)
 
 该接口提供所有支付宝支付订单的查询，商户可以通过该接口主动查询订单状态，完成下一步的业务逻辑。
@@ -200,7 +226,8 @@ out_trade_no 与 trade_no 二选一且不能同时为空；
 | --- | --- | --- | --- | --- | --- |
 | `out_trade_no` | `OutTradeNo` | `string` | JSON body | 未标注 | 订单支付时传入的商户订单号,和支付宝交易号不能同时为空。<br> trade_no,out_trade_no如果同时存在优先取trade_no |
 | `trade_no` | `TradeNo` | `string` | JSON body | 未标注 | 支付宝交易号，和商户订单号不能同时为空 |
-| `query_options` | `QueryOptions` | [`[]QueryOption`](trade_model.go#L185) | JSON body | 未标注 | 查询选项，商户传入该参数可定制本接口同步响应额外返回的信息字段，数组格式。<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `query_options` | `QueryOptions` | [`[]QueryOption`](trade_model.go#L201) | JSON body | 未标注 | 查询选项，商户传入该参数可定制本接口同步响应额外返回的信息字段，数组格式。<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `org_pid` | `OrgPID` | `*string` | JSON body | 未标注 | 银行间联模式的机构 PID。 |
 
 注意事项：
 
@@ -213,8 +240,8 @@ out_trade_no 与 trade_no 二选一且不能同时为空；
 
 - 官方接口：[`alipay.trade.precreate`](https://opendocs.alipay.com/open-v3/fa0c2141_alipay.trade.precreate)
 - 路由：`POST /v3/alipay/trade/precreate`
-- 请求类型：[PreCreateRequest](trade_request.go#L24)
-- 响应类型：[PreCreateResponse](trade_response.go#L59)
+- 请求类型：[PreCreateRequest](trade_request.go#L27)
+- 响应类型：[PreCreateResponse](trade_response.go#L145)
 
 收银员通过收银台或商户后台调用支付宝接口，生成二维码后，展示给用户，由用户扫描二维码完成订单支付。
 
@@ -227,7 +254,7 @@ out_trade_no、total_amount、subject 为必选。
 | `out_trade_no` | `OutTradeNo` | `string` | JSON body | 未标注 | 商户订单号。 由商家自定义，64个字符以内，仅支持字母、数字、下划线且需保证在商户端不重复。<br>SDK 字段说明：商户订单号：64 字符以内，仅支持字母、数字、下划线，<br>且需保证在商户端不重复。 |
 | `total_amount` | `TotalAmount` | `string` | JSON body | 未标注 | 订单总金额。 单位为元，精确到小数点后两位，取值范围：[0.01,100000000] 。<br>SDK 字段说明：订单总金额，两位小数，取值范围 [0.01,100000000]。 |
 | `subject` | `Subject` | `string` | JSON body | 未标注 | 订单标题。 注意：256个字符以内，不可使用特殊字符，如 /，=，& 等。<br>SDK 字段说明：订单标题；不可使用 / = & 等特殊字符。 |
-| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L164) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； 默认值为FACE_TO_FACE_PAYMENT。<br>SDK 字段说明：产品码，默认 FACE_TO_FACE_PAYMENT。 |
+| `product_code` | `ProductCode` | [`*ProductCode`](trade_model.go#L172) | JSON body | 未标注 | 产品码。 商家和支付宝签约的产品码。 枚举值（点击查看签约情况）： [FACE_TO_FACE_PAYMENT](https://opensupport.alipay.com/support/codelab/detail/486/487)：当面付产品； 默认值为FACE_TO_FACE_PAYMENT。<br>SDK 字段说明：产品码，默认 FACE_TO_FACE_PAYMENT。 |
 | `seller_id` | `SellerID` | `*string` | JSON body | 未标注 | 卖家支付宝用户ID。 当需要指定收款账号时，通过该参数传入，如果该值为空，则默认为商户签约账号对应的支付宝用户ID。 收款账号优先级规则：门店绑定的收款账户&gt;请求传入的seller_id&gt;商户签约账号对应的支付宝用户ID； 注：直付通和机构间联场景下seller_id无需传入或者保持跟pid一致； 如果传入的seller_id与pid不一致，需要联系支付宝小二配置收款关系；<br>SDK 字段说明：卖家支付宝用户 ID；收款账户优先级见官方文档。 |
 | `body` | `Body` | `*string` | JSON body | 未标注 | 订单附加信息。 如果请求时传递了该参数，将在异步通知、对账单中原样返回，同时会在商户和用户的pc账单详情中作为交易描述展示<br>SDK 字段说明：订单附加信息，将在异步通知、对账单中原样返回。 |
 | `goods_detail` | `GoodsDetail` | [`[]GoodsDetail`](#model-goodsdetail) | JSON body | 未标注 | 订单包含的商品列表信息.json格式. 其它说明详见：“商品明细说明”<br>SDK 字段说明：订单包含的商品列表，上限 150 条。 |
@@ -244,9 +271,17 @@ out_trade_no、total_amount、subject 为必选。
 | `disable_pay_channels` | `DisablePayChannels` | `*string` | JSON body | 未标注 | 禁用渠道,用户不可用指定渠道支付，多个渠道以逗号分割 注，与enable_pay_channels互斥 [渠道列表](https://docs.open.alipay.com/common/wifww7)<br>SDK 字段说明：禁用渠道列表（逗号分割），与 EnablePayChannels 互斥。 |
 | `enable_pay_channels` | `EnablePayChannels` | `*string` | JSON body | 未标注 | 指定支付渠道。 用户只能使用指定的渠道进行支付，多个渠道以逗号分割。 与disable_pay_channels互斥，支持传入的值：[渠道列表](https://docs.open.alipay.com/common/wifww7)。 注：如果传入了指定支付渠道，则用户只能用指定内的渠道支付，包括营销渠道也要指定才能使用。该参数可能导致用户支付受限，慎用。<br>SDK 字段说明：指定支付渠道列表（逗号分割），与 DisablePayChannels 互斥。 |
 | `merchant_order_no` | `MerchantOrderNo` | `*string` | JSON body | 未标注 | 商户的原始订单号 |
-| `code_type` | `CodeType` | [`*CodeType`](trade_model.go#L172) | JSON body | 未标注 | 码类型，如果请求时传入了share_code，将在响应参数返回吱口令；如果为空，则默认为订单码<br>SDK 字段说明：码类型；为空默认为订单码。 |
-| `query_options` | `QueryOptions` | [`[]PreCreateQueryOption`](trade_model.go#L204) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制需要额外返回的信息字段，数组格式。包括但不限于：["hyb_amount","enterprise_pay_info"] |
+| `code_type` | `CodeType` | [`*CodeType`](trade_model.go#L188) | JSON body | 未标注 | 码类型，如果请求时传入了share_code，将在响应参数返回吱口令；如果为空，则默认为订单码<br>SDK 字段说明：码类型；为空默认为订单码。 |
+| `query_options` | `QueryOptions` | [`[]PreCreateQueryOption`](trade_model.go#L220) | JSON body | 未标注 | 返回参数选项。 商户通过传递该参数来定制需要额外返回的信息字段，数组格式。包括但不限于：["hyb_amount","enterprise_pay_info"] |
 | `bkagent_req_info` | `BkAgentReqInfo` | [`*BkAgentReqInfo`](#model-bkagentreqinfo) | JSON body | 未标注 | 间联交易下由收单机构上送的信息。 |
+| `alipay_store_id` | `AlipayStoreID` | `*string` | JSON body | 未标注 | 支付宝店铺编号。 |
+| `buyer_logon_id` | `BuyerLogonID` | `*string` | JSON body | 未标注 | 买家支付宝账号。 |
+| `ext_user_info` | `ExtUserInfo` | [`*ExtUserInfo`](trade_model.go#L588) | JSON body | 未标注 | 指定买家的身份信息。 |
+| `passback_params` | `PassbackParams` | `*string` | JSON body | 未标注 | 公用回传参数。 |
+| `payment_type` | `PaymentType` | [`*PaymentType`](trade_model.go#L166) | JSON body | 未标注 | 指定支付方式。 |
+| `qr_code_timeout_express` | `QRCodeTimeoutExpress` | `*string` | JSON body | 未标注 | 二维码订单相对超时时间。 |
+| `royalty_info` | `RoyaltyInfo` | [`*RoyaltyInfo`](trade_decodenotification_model.go#L314) | JSON body | 未标注 | 本次支付的分账信息。 |
+| `sub_merchant` | `SubMerchant` | [`*SubMerchant`](trade_model.go#L628) | JSON body | 未标注 | 二级商户信息。 |
 
 注意事项：
 
@@ -259,8 +294,8 @@ qr_code 缺失时按业务响应处理，不代表预下单失败或成功。
 
 - 官方接口：[`alipay.trade.close`](https://opendocs.alipay.com/open-v3/48ea518b_alipay.trade.close?scene=common&pathHash=2c6cdbea)
 - 路由：`POST /v3/alipay/trade/close`
-- 请求类型：[CloseRequest](trade_request.go#L82)
-- 响应类型：[CloseResponse](trade_response.go#L71)
+- 请求类型：[CloseRequest](trade_request.go#L101)
+- 响应类型：[CloseResponse](trade_response.go#L157)
 
 用于交易创建后，用户在一定时间内未进行支付，可调用该接口直接将未付款的交易进行关闭。
 
@@ -274,6 +309,7 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `trade_no` | `TradeNo` | `string` | JSON body | 未标注 | 该交易在支付宝系统中的交易流水号。最短 16 位，最长 64 位。和out_trade_no不能同时为空，如果同时传了 out_trade_no和 trade_no，则以 trade_no为准。<br>SDK 字段说明：支付宝交易号（最短 16 位）。 |
 | `out_trade_no` | `OutTradeNo` | `string` | JSON body | 未标注 | 订单支付时传入的商户订单号,和支付宝交易号不能同时为空。 trade_no,out_trade_no如果同时存在优先取trade_no |
 | `operator_id` | `OperatorID` | `*string` | JSON body | 未标注 | 商家操作员编号 id，由商家自定义。 |
+| `extend_params` | `ExtendParams` | [`*CloseExtendParams`](trade_model.go#L542) | JSON body | 未标注 | 关单扩展参数。 |
 
 注意事项：
 
@@ -289,60 +325,62 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | [alipay.trade.wap.pay](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay) | `WapPayURL` / `WapPayForm` | `PagePayRequest` | 跳转 URL / 自动提交 HTML 表单 |
 | [alipay.trade.app.pay](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay) | `AppPayOrderString` | `AppPayRequest` | 交支付宝客户端 SDK 的订单串 |
 
-以下四个业务字段必填：`out_trade_no`、`total_amount`、`subject`、`product_code`。电脑网站支付产品码为 `FAST_INSTANT_TRADE_PAY`，手机网站支付为 `QUICK_WAP_WAY`，App 支付为 `QUICK_MSECURITY_PAY`。
+三类支付产物均需提供 `out_trade_no`、`total_amount`、`subject`。电脑网站支付须传产品码 `FAST_INSTANT_TRADE_PAY`，手机网站支付须传 `QUICK_WAP_WAY`。普通 App 支付可省略产品码，由支付宝按 `QUICK_MSECURITY_PAY` 处理。App 周期扣款使用 `CYCLE_PAY_AUTH` 并传入签约信息。
 
-通知地址通过 `core.WithNotifyURL` 传入；返回页面或客户端回调不能作为已付款凭据。金额、订单与收款方必须结合验签后的通知或订单查询核对。支付并签约使用 `AppPayRequest.SignParams`，依据[官方支付并签约文档](https://opendocs.alipay.com/open-v3/0jf33m)。
+通知地址通过 `core.WithNotifyURL` 传入；返回页面或客户端回调不能作为已付款凭据。金额、订单与收款方必须结合验签后的通知或订单查询核对。支付并签约使用 `AppPayRequest.AgreementSignParams`，依据[官方支付并签约文档](https://opendocs.alipay.com/open-v3/0jf33m)。
 
 ### PagePayRequest
 
-类型定义：[PagePayRequest](trade_request.go#L296)。
+类型定义：[PagePayRequest](trade_request.go#L372)。
 
 | 协议字段 | Go 字段 | Go 类型 | 说明 |
 | --- | --- | --- | --- |
 | `out_trade_no` | `OutTradeNo` | `string` | 商户订单号：64 字符以内，仅支持字母、数字、下划线，<br>且需保证在商户端不重复。 |
 | `total_amount` | `TotalAmount` | `string` | 订单总金额，两位小数，取值范围 [0.01,100000000]。 |
 | `subject` | `Subject` | `string` | 订单标题；不可使用 / = & 等特殊字符。 |
-| `product_code` | `ProductCode` | [`ProductCode`](trade_model.go#L164) | 产品码：电脑网站支付 FAST_INSTANT_TRADE_PAY，<br>手机网站支付 QUICK_WAP_WAY。 |
-| `seller_id` | `SellerID` | `*string` | 卖家支付宝用户 ID。 |
+| `product_code` | `ProductCode` | [`ProductCode`](trade_model.go#L172) | 产品码：电脑网站支付 FAST_INSTANT_TRADE_PAY，<br>手机网站支付 QUICK_WAP_WAY。 |
 | `body` | `Body` | `*string` | 订单附加信息，将在异步通知、对账单中原样返回。 |
 | `goods_detail` | `GoodsDetail` | [`[]GoodsDetail`](#model-goodsdetail) | 订单包含的商品列表。 |
 | `time_expire` | `TimeExpire` | `*string` | 订单绝对超时时间（yyyy-MM-dd HH:mm:ss）。 |
 | `timeout_express` | `TimeoutExpress` | `*string` | 订单相对超时时间（1m～15d）。 |
-| `qr_pay_mode` | `QRPayMode` | `*string` | 扫码支付方式（电脑网站支付）：0/1/2/3。 |
-| `qr_pay_time_limit` | `QrPayTimeLimit` | `*string` | 二维码可扫码支付的最长时间。 |
+| `qr_pay_mode` | `QRPayMode` | [`*QRPayMode`](trade_model.go#L778) | 扫码支付方式（电脑网站支付）：0/1/2/3/4。 |
 | `settle_info` | `SettleInfo` | [`*SettleInfo`](#model-settleinfo) | 结算信息。 |
 | `extend_params` | `ExtendParams` | [`*ExtendParams`](#model-extendparams) | 业务扩展参数。 |
-| `business_params` | `BusinessParams` | [`*BusinessParams`](#model-businessparams) | 与支付宝约定的直传业务信息。 |
+| `business_params` | `BusinessParams` | `*string` | 与支付宝约定的 JSON 文本。 |
 | `return_url` | `ReturnURL` | `*string` | 支付成功后的页面跳转地址；不是支付完成的可信证据。 |
-| `passback_params` | `PassbackParams` | `*string` | 公用回传参数，异步通知时原样返回。 |
+| `passback_params` | `PassbackParams` | `*string` | 手机网站支付已 URL 编码的公用回传参数，供异步通知回传。 |
+| `qrcode_width` | `QRCodeWidth` | `*int64` | 自定义二维码宽度，仅电脑网站支付的模式 4 使用。 |
+| `quit_url` | `QuitURL` | `*string` | 用户中途退出手机网站支付时的返回地址。 |
+| `ext_user_info` | `ExtUserInfo` | [`*ExtUserInfo`](trade_model.go#L588) | 指定买家信息。 |
+| `sub_merchant` | `SubMerchant` | [`*SubMerchant`](trade_model.go#L628) | 电脑网站支付的二级商户信息。 |
+| `invoice_info` | `InvoiceInfo` | [`*InvoiceInfo`](trade_model.go#L794) | 电脑网站支付的开票信息。 |
+| `store_id` | `StoreID` | `*string` | 电脑网站支付的商户门店编号。 |
+| `royalty_info` | `RoyaltyInfo` | [`*RoyaltyInfo`](trade_decodenotification_model.go#L314) | 电脑网站支付的分账信息。 |
 
 ### AppPayRequest
 
-类型定义：[AppPayRequest](trade_request.go#L336)。
+类型定义：[AppPayRequest](trade_request.go#L422)。
 
 | 协议字段 | Go 字段 | Go 类型 | 说明 |
 | --- | --- | --- | --- |
 | `out_trade_no` | `OutTradeNo` | `string` | 商户订单号。 |
 | `total_amount` | `TotalAmount` | `string` | 订单总金额。 |
 | `subject` | `Subject` | `string` | 订单标题。 |
-| `product_code` | `ProductCode` | [`ProductCode`](trade_model.go#L164) | 产品码：App 支付为 QUICK_MSECURITY_PAY。 |
-| `seller_id` | `SellerID` | `*string` | 卖家支付宝用户 ID。 |
+| `product_code` | `ProductCode` | [`ProductCode`](trade_model.go#L172) | 普通 App 支付默认为 QUICK_MSECURITY_PAY，周期扣款使用 CYCLE_PAY_AUTH。 |
 | `body` | `Body` | `*string` | 订单附加信息。 |
 | `goods_detail` | `GoodsDetail` | [`[]GoodsDetail`](#model-goodsdetail) | 订单包含的商品列表。 |
 | `time_expire` | `TimeExpire` | `*string` | 订单绝对超时时间。 |
 | `timeout_express` | `TimeoutExpress` | `*string` | 订单相对超时时间。 |
-| `settle_info` | `SettleInfo` | [`*SettleInfo`](#model-settleinfo) | 结算信息。 |
-| `royalty_info` | `RoyaltyInfo` | [`*RoyaltyInfo`](#model-royaltyinfo) | 分账信息。 |
 | `extend_params` | `ExtendParams` | [`*ExtendParams`](#model-extendparams) | 业务扩展参数。 |
-| `business_params` | `BusinessParams` | [`*BusinessParams`](#model-businessparams) | 与支付宝约定的直传业务信息。 |
-| `sign_params` | `SignParams` | [`*SignParams`](#model-signparams) | 支付并签约场景的签约参数。 |
-| `passback_params` | `PassbackParams` | `*string` | 公用回传参数。 |
+| `agreement_sign_params` | `AgreementSignParams` | [`*SignParams`](trade_decodenotification_model.go#L323) | 支付并签约场景的签约参数。 |
+| `passback_params` | `PassbackParams` | `*string` | 已 URL 编码的公用回传参数。 |
+| `ext_user_info` | `ExtUserInfo` | [`*ExtUserInfo`](trade_model.go#L588) | 外部指定的买家信息。 |
 
 ## 支付异步通知
 
 普通支付通知通过 `core/notify` 验签，并使用 `trade.NotificationDecoder` 解码为 `trade.Notification`；当前仅适用于 `notify_type=trade_status_sync`。商户仍须校验应用、收款方、订单与金额，完成幂等业务处理后再确认通知。
 
-通知字段见 [Notification](trade_model.go#L347)；示例见 [api_notify_example_test.go](api_notify_example_test.go) 与[完整通知示例](../../examples/tradenotify/main.go)。协议依据：[支付通知说明](https://opendocs.alipay.com/open/194/103296)、[通知验签规则](https://opendocs.alipay.com/common/02mse7.md)。
+通知字段见 [Notification](trade_model.go#L363)；示例见 [api_notify_example_test.go](api_notify_example_test.go) 与[完整通知示例](../../examples/tradenotify/main.go)。协议依据：[支付通知说明](https://opendocs.alipay.com/open/194/103296)、[通知验签规则](https://opendocs.alipay.com/common/02mse7.md)。
 
 ## 嵌套请求参数
 
@@ -350,7 +388,7 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 
 ### AgreementParams
 
-类型定义：[AgreementParams](trade_decodenotification_model.go#L276)。
+类型定义：[AgreementParams](trade_decodenotification_model.go#L302)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -363,7 +401,7 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 
 ### BkAgentReqInfo
 
-类型定义：[BkAgentReqInfo](trade_decodenotification_model.go#L198)。
+类型定义：[BkAgentReqInfo](trade_decodenotification_model.go#L226)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -372,13 +410,12 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `device_type` | `DeviceType` | `*string` | 未标注 | 终端设备类型，受理方可参考终端注册时的设备类型填写。<br>SDK 字段说明：终端设备类型（如 01 ATM、02 传统 POS、03 mPOS）。 |
 | `serial_num` | `SerialNum` | `*string` | 未标注 | 终端类型填写为 02、 03、04、05、06、08、09 或 10 时，必 须填写终端序列号。<br>SDK 字段说明：终端序列号；特定设备类型下必填。 |
 | `location` | `Location` | `*string` | 未标注 | 终端设备实时经纬度信息，格式为纬度/经度，+表示北纬、东经，-表示南纬、西经。<br>SDK 字段说明：终端设备实时经纬度，格式为纬度/经度。 |
-| `payment_type` | `PaymentType` | `*string` | 未标注 | 支付类型（如 agent_pay 智能体 SDK 支付）。 |
 
 <a id="model-businessparams"></a>
 
 ### BusinessParams
 
-类型定义：[BusinessParams](trade_decodenotification_model.go#L178)。
+类型定义：[BusinessParams](trade_decodenotification_model.go#L200)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -390,12 +427,15 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `enterprise_pay_amount` | `EnterprisePayAmount` | `*string` | 未标注 | 因公付金额，单位：元。 |
 | `mc_create_trade_ip` | `MCCreateTradeIP` | `*string` | 未标注 | 商户端创建订单的 IP，须上传正确的用户端外网 IP，支持 ipv4/ipv6 格式； mc_create_trade_ip和mcCreateTradeIp（旧）参数描述相同，首选mc_create_trade_ip入参，请勿重复入参； 如已入参mcCreateTradeIp（旧），无需新增入参mc_create_trade_ip。<br>SDK 字段说明：商户端创建订单的 IP（ipv4/ipv6）。 |
 | `tiny_app_merchant_biz_type` | `TinyAppMerchantBizType` | `*string` | 未标注 | 当需要在 商家平台（b.alipay.com）—数据中心 中查看对应业务场景下的数据明细可以通过该参数传入 支持传入的值：[小程序细分业务场景](https://opendocs.alipay.com/mini/08by8k?pathHash=96e03412) |
+| `buyer_memo` | `BuyerMemo` | `*string` | 未标注 | 买家备注信息。 |
+| `force_pwd` | `ForcePwd` | `*string` | 未标注 | 收银台强制密码核身参数，实际收银侧会根据这个参数为true并结合业务场景来判断是否密码核身。 |
+| `priority_unfreeze_asset` | `PriorityUnfreezeAsset` | `*string` | 未标注 | 信用预授权转交易阶段，优先解冻的用户资产。 |
 
 <a id="model-extendparams"></a>
 
 ### ExtendParams
 
-类型定义：[ExtendParams](trade_decodenotification_model.go#L162)。
+类型定义：[ExtendParams](trade_decodenotification_model.go#L170)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -405,12 +445,19 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `royalty_freeze` | `RoyaltyFreeze` | `*string` | 未标注 | 是否进行资金冻结，用于后续分账，true表示资金冻结，false或不传表示资金不冻结<br>SDK 字段说明：为 true 时进行资金冻结，用于后续分账。 |
 | `tc_installment_order_id` | `TCInstallmentOrderID` | `*string` | 未标注 | 公域商品交易分期单ID，小程序交易组件订单特殊场景使用，请传入 订单分期接口(alipay.open.mini.order.installment.create)中返回的installment_order_id<br>SDK 字段说明：公域商品交易分期单 ID。 |
 | `trade_component_order_id` | `TradeComponentOrderID` | `*string` | 未标注 | 公域商品交易业务订单ID<br>SDK 字段说明：公域商品交易业务订单 ID。 |
+| `credit_ext_info` | `CreditExtInfo` | `*string` | 未标注 | 信用参数，可选，如有需要请与芝麻约定后传入。 |
+| `fq_channels` | `FqChannels` | `*string` | 未标注 | 分期渠道。 |
+| `fq_num` | `FqNum` | `*string` | 未标注 | 使用花呗分期的期数。 |
+| `fq_seller_percent` | `FqSellerPercent` | `*string` | 未标注 | 花呗分期卖家承担收费比例。 |
+| `hb_fq_num` | `HbFqNum` | `*string` | 未标注 | 使用花呗分期要进行的分期数。 |
+| `hb_fq_seller_percent` | `HbFqSellerPercent` | `*string` | 未标注 | 使用花呗分期需要卖家承担的手续费比例的百分值，传入100代表100%。 |
+| `industry_reflux_info` | `IndustryRefluxInfo` | `*string` | 未标注 | 行业数据回流信息, 详见：地铁支付接口参数补充说明。 |
 
 <a id="model-goodsdetail"></a>
 
 ### GoodsDetail
 
-类型定义：[GoodsDetail](trade_decodenotification_model.go#L114)。
+类型定义：[GoodsDetail](trade_decodenotification_model.go#L116)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -423,12 +470,15 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `show_url` | `ShowURL` | `*string` | 未标注 | 商品的展示地址 |
 | `out_item_id` | `OutItemID` | `*string` | 未标注 | 商家侧小程序商品ID，指商家提报给小程序商品库的商品。当前接口的extend_params.trade_component_order_id字段不为空时该字段必填，且与交易组件订单参数保持一致。了解小程序商品请参考：[https://opendocs.alipay.com/mini/06uila?pathHash=63b6fba7](https://opendocs.alipay.com/mini/06uila?pathHash=63b6fba7)<br>SDK 字段说明：商家侧小程序商品 ID。 |
 | `out_sku_id` | `OutSkuID` | `*string` | 未标注 | 商家侧小程序商品ID，指商家提报给小程序商品库的商品。当前接口的extend_params.trade_component_order_id字段不为空时该字段必填，且与交易组件订单参数保持一致。了解小程序商品请参考：[https://opendocs.alipay.com/mini/06uila?pathHash=63b6fba7](https://opendocs.alipay.com/mini/06uila?pathHash=63b6fba7)<br>SDK 字段说明：商家侧小程序商品 SKU ID。 |
+| `alipay_goods_id` | `AlipayGoodsID` | `*string` | 未标注 | 支付宝定义的统一商品编号。 |
+| `body` | `Body` | `*string` | 未标注 | 商品描述信息。 |
+| `goods_ean_id` | `GoodsEANID` | `*string` | 未标注 | 商品69条码。 |
 
 <a id="model-periodruleparams"></a>
 
 ### PeriodRuleParams
 
-类型定义：[PeriodRuleParams](trade_decodenotification_model.go#L327)。
+类型定义：[PeriodRuleParams](trade_decodenotification_model.go#L361)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -439,19 +489,20 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `total_amount` | `TotalAmount` | `*string` | 未标注 | 总金额限制，单位为元。如果传入此参数，商户多次扣款的累计金额不允许超过此金额。 |
 | `total_payments` | `TotalPayments` | `*int64` | 未标注 | 总扣款次数。如果传入此参数，则商户成功扣款的次数不能超过此次数限制（扣款失败不计入）。 |
 | `is_trial_mode` | `IsTrialMode` | `*string` | 未标注 | 若签约中传该参数，且值为 Y ，则表示本次签约有试用期。若传值为 N 或不传该参数，则表示本次签约无试用期。<br>SDK 字段说明：标识本次签约是否有试用期（Y/N）。 |
+| `scene_rule_params` | `SceneRuleParams` | [`*SceneRuleParams`](trade_model.go#L580) | 未标注 | 周期扣款的场景规则。 |
 
 <a id="model-royaltydetailinfo"></a>
 
 ### RoyaltyDetailInfo
 
-类型定义：[RoyaltyDetailInfo](trade_decodenotification_model.go#L214)。
+类型定义：[RoyaltyDetailInfo](trade_decodenotification_model.go#L240)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
-| `royalty_type` | `RoyaltyType` | [`*RoyaltyType`](trade_model.go#L140) | 未标注 | 分账类型.<br>SDK 字段说明：分账类型；为空默认为普通分账 transfer。 |
+| `royalty_type` | `RoyaltyType` | [`*RoyaltyType`](trade_model.go#L142) | 未标注 | 分账类型.<br>SDK 字段说明：分账类型；为空默认为普通分账 transfer。 |
 | `trans_out` | `TransOut` | `*string` | 未标注 | 支出方账户。如果支出方账户类型为userId，本参数为支出方的支付宝账号对应的支付宝唯一用户号，以2088开头的纯16位数字；如果支出方类型为loginName，本参数为支出方的支付宝登录号。 泛金融类商户分账时，该字段不要上送。 |
-| `trans_out_type` | `TransOutType` | [`*AccountType`](trade_model.go#L150) | 未标注 | 支出方账户类型。 |
-| `trans_in_type` | `TransInType` | [`*AccountType`](trade_model.go#L150) | 未标注 | 收入方账户类型。 |
+| `trans_out_type` | `TransOutType` | [`*AccountType`](trade_model.go#L152) | 未标注 | 支出方账户类型。 |
+| `trans_in_type` | `TransInType` | [`*AccountType`](trade_model.go#L152) | 未标注 | 收入方账户类型。 |
 | `trans_in` | `TransIn` | `*string` | 未标注 | 收入方账户。如果收入方账户类型为userId，本参数为收入方的支付宝账号对应的支付宝唯一用户号，以2088开头的纯16位数字；如果收入方类型为cardAliasNo，本参数为收入方在支付宝绑定的卡编号；如果收入方类型为loginName，本参数为收入方的支付宝登录号；如果收入方类型为loginName，本参数为收入方的支付宝登录号；如果收入方类型为openId，本参数为收入方的支付宝openId信息；如果收入方类型为alipayWallet，本参数为收入方在支付宝绑定的场景钱包id |
 | `trans_in_id` | `TransInID` | `*string` | 未标注 | 分账转入方的支付宝userId<br>SDK 字段说明：分账转入方的支付宝 userId。 |
 | `amount` | `Amount` | `*string` | 未标注 | 分账的金额，单位为元 |
@@ -464,45 +515,45 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 
 ### RoyaltyInfo
 
-类型定义：[RoyaltyInfo](trade_decodenotification_model.go#L288)。
+类型定义：[RoyaltyInfo](trade_decodenotification_model.go#L314)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
-| `royalty_type` | `RoyaltyType` | [`*RoyaltyType`](trade_model.go#L140) | 未标注 | 分账类型<br> 卖家的分账类型，目前只支持传入ROYALTY（普通分账类型）。<br>SDK 字段说明：分账类型；目前只支持 ROYALTY。 |
-| `royalty_detail_infos` | `RoyaltyDetailInfos` | [`[]RoyaltyDetailInfo`](#model-royaltydetailinfo) | 未标注 | 分账明细的信息，可以描述多条分账指令，json数组。<br>SDK 字段说明：分账明细信息，可描述多条分账指令。 |
+| `royalty_type` | `RoyaltyType` | `*PaymentRoyaltyType` | 未标注 | 分账类型<br> 卖家的分账类型，目前只支持传入ROYALTY（普通分账类型）。<br>SDK 字段说明：分账类型；目前只支持 ROYALTY。 |
+| `royalty_detail_infos` | `RoyaltyDetailInfos` | [`[]PaymentRoyaltyDetail`](#model-paymentroyaltydetail) | 未标注 | 分账明细的信息，可以描述多条分账指令，json数组。<br>SDK 字段说明：分账明细信息，可描述多条分账指令。 |
 
 <a id="model-settledetailinfo"></a>
 
 ### SettleDetailInfo
 
-类型定义：[SettleDetailInfo](trade_decodenotification_model.go#L142)。
+类型定义：[SettleDetailInfo](trade_decodenotification_model.go#L152)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
-| `trans_in_type` | `TransInType` | [`AccountType`](trade_model.go#L150) | 未标注 | 结算收款方的账户类型。 |
+| `trans_in_type` | `TransInType` | [`AccountType`](trade_model.go#L152) | 未标注 | 结算收款方的账户类型。 |
 | `trans_in` | `TransIn` | `*string` | 未标注 | 结算收款方。当结算收款方类型是cardAliasNo时，本参数为用户在支付宝绑定的卡编号；结算收款方类型是userId时，本参数为用户的支付宝账号对应的支付宝唯一用户号，以2088开头的纯16位数字；当结算收款方类型是loginName时，本参数为用户的支付宝登录号；当结算收款方类型是defaultSettle时，本参数不能传值，保持为空。<br>SDK 字段说明：结算收款方；类型为 defaultSettle 时不能传值。 |
 | `amount` | `Amount` | `*string` | 未标注 | 结算的金额，单位为元。在创建订单和支付接口时必须和交易金额相同。在结算确认接口时必须等于交易金额减去已退款金额。直付通账期模式下，如使用部分结算能力、传递了actual_amount字段，则忽略本字段的校验、可不传。<br>SDK 字段说明：结算的金额，创建订单时必须与交易金额相同。 |
 | `summary_dimension` | `SummaryDimension` | `*string` | 未标注 | 结算汇总维度，按照这个维度汇总成批次结算，由商户指定。 目前需要和结算收款方账户类型为cardAliasNo配合使用<br>SDK 字段说明：结算汇总维度，需与 cardAliasNo 配合使用。 |
 | `settle_entity_id` | `SettleEntityID` | `*string` | 未标注 | 结算主体标识。当结算主体类型为SecondMerchant时，为二级商户的SecondMerchantID；当结算主体类型为Store时，为门店的外标。 |
 | `settle_entity_type` | `SettleEntityType` | `*string` | 未标注 | 结算主体类型。<br>SDK 字段说明：结算主体类型：SecondMerchant 或 Store。 |
 | `actual_amount` | `ActualAmount` | `*string` | 未标注 | 仅在直付通账期模式下，当一笔交易需要分多次发起部分确认结算时使用，表示本次确认结算的实际结算金额。传递本字段后，原amount字段不再生效，结算金额以本字段为准。如已经发生过部分确认结算、不传递本字段则默认按剩余待结算金额一次性结算。<br>SDK 字段说明：仅用于直付通账期模式的部分确认结算。 |
-| `settle_period_time` | `SettlePeriodTime` | `*string` | 未标注 | 超期自动确认结算时间（1d～365d），仅账期结算模式有效。 |
 
 <a id="model-settleinfo"></a>
 
 ### SettleInfo
 
-类型定义：[SettleInfo](trade_decodenotification_model.go#L136)。
+类型定义：[SettleInfo](trade_decodenotification_model.go#L144)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
 | `settle_detail_infos` | `SettleDetailInfos` | [`[]SettleDetailInfo`](#model-settledetailinfo) | 未标注 | 结算详细信息，json数组，目前只支持一条。<br>SDK 字段说明：结算详细信息，目前只支持一条。 |
+| `settle_period_time` | `SettlePeriodTime` | `*string` | 未标注 | 该笔订单的超期自动确认结算时间，到达期限后，将自动确认结算。 |
 
 <a id="model-signaccessparams"></a>
 
 ### SignAccessParams
 
-类型定义：[SignAccessParams](trade_decodenotification_model.go#L320)。
+类型定义：[SignAccessParams](trade_decodenotification_model.go#L354)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -512,7 +563,7 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 
 ### SignParams
 
-类型定义：[SignParams](trade_decodenotification_model.go#L297)。
+类型定义：[SignParams](trade_decodenotification_model.go#L323)。
 
 | 协议字段 | Go 字段 | Go 类型 | 必填（快照） | 说明 |
 | --- | --- | --- | --- | --- |
@@ -525,3 +576,24 @@ trade_no 与 out_trade_no 二选一且不能同时为空；同传时以 trade_no
 | `period_rule_params` | `PeriodRuleParams` | [`*PeriodRuleParams`](#model-periodruleparams) | 未标注 | 周期扣款规则参数。 |
 | `sign_notify_url` | `SignNotifyURL` | `*string` | 未标注 | 签约成功后商户用于接收异步通知的地址。如果不传入，签约与支付的异步通知都会发到外层notify_url参数传入的地址；如果外层也未传入，签约与支付的异步通知都会发到商户appid配置的网关地址。<br>SDK 字段说明：签约成功后接收异步通知的地址。 |
 | `effect_time` | `EffectTime` | `*string` | 未标注 | 设置签约请求的有效时间，单位为秒。如传入600，商户发起签约请求到用户进入支付宝签约页面的时间差不能超过10分钟。<br>SDK 字段说明：签约请求的有效时间（秒）。 |
+| `allow_huazhi_degrade` | `AllowHuazhiDegrade` | `*bool` | 未标注 | 是否允许花芝GO降级成原代扣（即销售方案指定的代扣产品），在花芝GO场景下才会使用该值。 |
+| `recommend_sort_channel_params` | `RecommendSortChannelParams` | [`[]SpecifiedChannelParams`](trade_model.go#L548) | 未标注 | 商户指定优先渠道扣款参数。 |
+| `specified_deduct_rule_params` | `SpecifiedDeductRuleParams` | [`*SpecifiedDeductRuleParams`](trade_model.go#L556) | 未标注 | 商户指定的扣款规则。 |
+| `sub_merchant` | `SubMerchant` | [`*SignMerchantParams`](trade_model.go#L568) | 未标注 | 二级商户信息。 |
+
+<a id="model-paymentroyaltydetail"></a>
+
+### PaymentRoyaltyDetail
+
+| 字段 | Go 类型 | 含义 |
+| --- | --- | --- |
+| `amount` | `*string` | 分账金额，单位为元。 |
+| `amount_percentage` | `*string` | 分账比例，例如 "20" 表示 20%。 |
+| `batch_no` | `*string` | 配合 bankIndex 使用的分账批次号。 |
+| `desc` | `*string` | 分账说明。 |
+| `out_relation_id` | `*string` | 商户为该笔分账分配的唯一关联号。 |
+| `serial_no` | `*int64` | 分账执行顺序，取正整数。 |
+| `trans_in` | `*string` | 接收分账金额的账户。 |
+| `trans_in_type` | `*AccountType` | 转入账户类型。 |
+| `trans_out` | `*string` | 转出分账金额的账户。 |
+| `trans_out_type` | `*AccountType` | 转出账户类型。 |

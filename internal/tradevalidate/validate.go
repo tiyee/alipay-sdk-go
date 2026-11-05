@@ -1,6 +1,7 @@
 package tradevalidate
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/tiyee/alipay-sdk-go/core"
@@ -23,7 +24,7 @@ func Amount(amount, field string) error {
 		return &core.ValidationError{Field: field, Reason: "amount is required"}
 	}
 	intPart, fracPart, found := strings.Cut(amount, ".")
-	if intPart == "" && fracPart == "" {
+	if intPart == "" || (found && fracPart == "") {
 		return &core.ValidationError{Field: field, Reason: "amount is not a decimal string"}
 	}
 	if len(intPart) > 1 && intPart[0] == '0' {
@@ -43,6 +44,20 @@ func Amount(amount, field string) error {
 		strings.ContainsFunc(fracPart, func(ch rune) bool { return ch != '0' })
 	if !nonZero {
 		return &core.ValidationError{Field: field, Reason: "amount must be greater than zero"}
+	}
+	return nil
+}
+
+// OrderAmount 校验官方限定在 [0.01, 100000000] 元的订单金额字段。
+func OrderAmount(amount, field string) error {
+	if err := Amount(amount, field); err != nil {
+		return err
+	}
+	const maxYuan = 100000000
+	whole, fraction, _ := strings.Cut(amount, ".")
+	yuan, err := strconv.ParseUint(whole, 10, 64)
+	if err != nil || yuan > maxYuan || (yuan == maxYuan && strings.Trim(fraction, "0") != "") {
+		return &core.ValidationError{Field: field, Reason: "amount exceeds 100000000 yuan"}
 	}
 	return nil
 }

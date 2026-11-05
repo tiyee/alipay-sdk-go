@@ -91,11 +91,13 @@ func ExampleService_InvoiceExpenseRulesEmployeeQuery() {
 
 	enterpriseId := "2088000194958956"
 	standardId := "2021081900152601000000000101"
-	pageNum := "1"
+	pageNum := int64(1)
+	pageSize := int64(20)
 	response, err := svc.InvoiceExpenseRulesEmployeeQuery(ctx, employee.InvoiceExpenseRulesEmployeeQueryRequest{
 		EnterpriseId: &enterpriseId,
 		StandardId:   &standardId,
 		PageNum:      &pageNum,
+		PageSize:     &pageSize,
 	})
 	if err != nil {
 		fmt.Println("接口调用失败")

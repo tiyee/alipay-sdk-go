@@ -238,7 +238,7 @@
 
 请求约束：MiniInnerAppServiceQueryRequest is the request type for alipay.open.mini.innerapp.service.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `mini_app_id` | `MiniAppId` | `*string` | query | 否 | 插件id或模板id |
 | `app_sub_type` | `AppSubType` | `*string` | query | 否 | 小程序应用子类型 |
@@ -247,4 +247,4 @@
 | `page_num` | `PageNum` | `*string` | query | 否 | 页码，默认第一页 |
 | `page_size` | `PageSize` | `*string` | query | 否 | 分页数，默认每页10个 |
 | `app_origin` | `AppOrigin` | `*string` | query | 否 | 业务来源，新接入方需要向支付宝申请专用来源，否则不予接入。https://yuque.antfin-inc.com/tinyapp-all/qddncu/bidushixiang |
-| `include_offline` | `IncludeOffline` | `*string` | query | 否 | 是否需要展示offline状态插件，不传默认为false（不展示） |
+| `include_offline` | `IncludeOffline` | `*bool` | query | 否 | 是否需要展示offline状态插件，不传默认为false（不展示） |

@@ -116,9 +116,9 @@ type EcEnterpriseAddressQueryRequest struct {
 	// CityCode 是市
 	CityCode *string `json:"city_code,omitempty" query:"city_code,omitempty"`
 	// PageNum 是页码从1开始
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是每页数据
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // EcEnterpriseAgreementQueryRequest is the query request model for alipay.commerce.ec.enterprise.agreement.query.

@@ -2,6 +2,12 @@
 
 核验日期：2026-11-05。本文决定接口的目标协议；当前代码是否实现、离线或沙箱是否验证，分别见[覆盖记录](api-coverage.md)。
 
+## 当前字段契约
+
+2026-11-06 复核 V3 字段契约后，交易模型共用 `settle_info.settle_period_time`，预创建在顶层发送 `payment_type`。资金退回按接口文档校验 `biz_scene`，历史余额查询仅使用日期或月份。31 个操作的数值和布尔 query 参数已使用对应 Go 类型，必填参数在请求发送前检查。交易、退款、转账和账单模型已补齐快照字段，两个废弃令牌响应字段的取舍见[逐接口核查记录](checked.md)。
+
+App 支付并签约使用 `biz_content.agreement_sign_params`。页面签名产物按 PC/WAP 参数表分别处理二维码宽度和退出地址。[App 签约](https://opendocs.alipay.com/open-v3/0jf33m) · [电脑网站支付](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay) · [手机网站支付](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay)
+
 ## 1. 选型规则
 
 **同一能力有官方 V3 接口时使用 V3；确认只有 V2 的接口才使用 V2。** 此规则同时适用于内置 Service 与用户自定义 API。
@@ -38,7 +44,7 @@
 
 同日核验的 [0jf33m](https://opendocs.alipay.com/open-v3/0jf33m) 是 `alipay.trade.app.pay` 在商家扣款产品中的 V3 场景文档，更新时间同为 2026-08-21。正文明确用于 App 支付并签约，Java 示例使用 V3 SDK `GenericExecuteApi.sdkExecute`；新增的是同一接口的场景依据，因此接口总数仍为 16，不重复计数。
 
-该场景包含 `agreement_sign_params` 以及嵌套的 `access_params`、`period_rule_params` 等签约数据。实现时采用独立具名 struct、具名枚举与明确的条件校验，不照搬普通 App 支付场景的必填关系，也不以动态字典替代模型。签约能力按场景排入实现范围，不将存在官方文档视为代码已经支持。
+该场景包含 `agreement_sign_params` 以及嵌套的 `access_params`、`period_rule_params` 等签约数据。实现时采用独立具名 struct、具名枚举与明确的条件校验，不照搬普通 App 支付场景的必填关系，也不以动态字典替代模型。App 支付并签约的实现与离线验证见上文的字段核查记录。
 
 这些 V3 文档的页面产物仍展示 `gateway.do`、`method`、`version=1.0`、`biz_content` 和签名参数，应按文档实现；这描述实际签名格式，不能据此宣称没有 V3 文档或 V3 SDK 支持。SDK 应提供独立的页面/订单串构建入口，而非强行套用服务端 REST JSON 执行器。
 

@@ -92,10 +92,14 @@ func ExampleService_InvoiceExpenseSceneMerchantQuery() {
 	enterpriseId := "2088xxx"
 	roleId := "2088xxx"
 	pid := "2088xxx"
+	pageNum := int64(1)
+	pageSize := int64(20)
 	response, err := svc.InvoiceExpenseSceneMerchantQuery(ctx, expensescene.InvoiceExpenseSceneMerchantQueryRequest{
 		EnterpriseId: &enterpriseId,
 		RoleId:       &roleId,
 		Pid:          &pid,
+		PageNum:      &pageNum,
+		PageSize:     &pageSize,
 	})
 	if err != nil {
 		fmt.Println("接口调用失败")

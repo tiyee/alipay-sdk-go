@@ -37,8 +37,8 @@
 
 - 官方接口：[`alipay.trade.fastpay.refund.query`](https://opendocs.alipay.com/open-v3/b9ef37bd_alipay.trade.fastpay.refund.query?scene=common&pathHash=f071344e)
 - 路由：`POST /v3/alipay/trade/fastpay/refund/query`
-- 请求类型：[QueryRefundRequest](refund_request.go#L35)
-- 响应类型：[QueryRefundResponse](refund_response.go#L48)
+- 请求类型：[QueryRefundRequest](refund_request.go#L55)
+- 响应类型：[QueryRefundResponse](refund_response.go#L68)
 
 商户可使用该接口查询自已通过alipay.trade.refund提交的退款请求是否执行成功。
 
@@ -50,6 +50,7 @@
 | `trade_no` | `TradeNo` | `string` | JSON body | 未标注 | 支付宝交易号。 和商户订单号不能同时为空 |
 | `out_trade_no` | `OutTradeNo` | `string` | JSON body | 未标注 | 商户订单号。 订单支付时传入的商户订单号,和支付宝交易号不能同时为空。 trade_no,out_trade_no如果同时存在优先取trade_no<br>SDK 字段说明：商户订单号；与 TradeNo 同传时优先使用 trade_no。 |
 | `query_options` | `QueryOptions` | [`[]RefundQueryOption`](refund_model.go#L64) | JSON body | 未标注 | 查询选项，商户通过上送该参数来定制同步需要额外返回的信息字段，数组格式。枚举支持： refund_detail_item_list：本次退款使用的资金渠道； gmt_refund_pay：退款执行成功的时间； deposit_back_info：银行卡冲退信息；<br>SDK 字段说明：同步额外返回的信息字段。 |
+| `org_pid` | `OrgPID` | `*string` | JSON body | 未标注 | 银行间联模式的机构 PID。 |
 
 注意事项：
 
@@ -83,9 +84,19 @@ out_trade_no 与 trade_no 二选一；out_request_no 在部分退款时必选，
 | `out_request_no` | `OutRequestNo` | `*string` | JSON body | 未标注 | 退款请求号。 标识一次退款请求，需要保证在交易号下唯一，如需部分退款，则此参数必传。 注：针对同一次退款请求，如果调用接口失败或异常了，重试时需要保证退款请求号不能变更，防止该笔交易重复退款。支付宝会保证同样的退款请求号多次请求只会退一次。<br>SDK 字段说明：退款请求号，需保证在交易号下唯一；<br>部分退款时必选；同请求号多次请求只退一次。 |
 | `refund_reason` | `RefundReason` | `*string` | JSON body | 未标注 | 退款原因说明。 商家自定义，将在会在商户和用户的pc退款账单详情中展示 |
 | `refund_goods_detail` | `RefundGoodsDetail` | [`[]RefundGoodsDetail`](#model-refundgoodsdetail) | JSON body | 未标注 | 退款包含的商品列表信息 |
-| `refund_royalty_parameters` | `RefundRoyaltyParameters` | [`[]RoyaltyDetailInfo`](../README.md#model-royaltydetailinfo) | JSON body | 未标注 | 退分账明细信息。 注： 1.当面付且非直付通模式无需传入退分账明细，系统自动按退款金额与订单金额的比率，从收款方和分账收入方退款，不支持指定退款金额与退款方。 2.直付通模式，电脑网站支付，手机 APP 支付，手机网站支付产品，须在退款请求中明确是否退分账，从哪个分账收入方退，退多少分账金额；如不明确，默认从收款方退款，收款方余额不足退款失败。不支持系统按比率退款。 |
+| `refund_royalty_parameters` | `RefundRoyaltyParameters` | [`[]trade.RoyaltyDetailInfo`](../trade_decodenotification_model.go#L240) | JSON body | 未标注 | 退分账明细信息。 |
 | `query_options` | `QueryOptions` | [`[]RefundQueryOption`](refund_model.go#L64) | JSON body | 未标注 | 查询选项。 商户通过上送该参数来定制同步需要额外返回的信息字段，数组格式。<br>SDK 字段说明：同步额外返回的信息字段。 |
 | `related_settle_confirm_no` | `RelatedSettleConfirmNo` | `*string` | JSON body | 未标注 | 针对账期交易，在确认结算后退款的话，需要指定确认结算时的结算单号。<br>SDK 字段说明：用于账期交易确认结算后退款。 |
+| `goods_detail` | `GoodsDetail` | [`[]trade.GoodsDetail`](../trade_decodenotification_model.go#L116) | JSON body | 未标注 | 退款包含的商品列表信息，Json格式。 |
+| `operator_id` | `OperatorID` | `*string` | JSON body | 未标注 | 商户的操作员编号。 |
+| `org_pid` | `OrgPID` | `*string` | JSON body | 未标注 | 银行间联模式的机构 PID。 |
+| `refund_advance_account` | `RefundAdvanceAccount` | `*string` | JSON body | 未标注 | 指定垫资退款账号主体，可能是用户id或登录名。 |
+| `refund_advance_account_type` | `RefundAdvanceAccountType` | `*string` | JSON body | 未标注 | 指定垫资退款账号的类型，取值范围：default，userId，loginName。 |
+| `refund_currency` | `RefundCurrency` | `*string` | JSON body | 未标注 | 订单退款币种信息。 |
+| `refund_trans_out` | `RefundTransOut` | `*string` | JSON body | 未标注 | 指定退款账号，对应指定账号退款合约中的约定账号。 |
+| `refund_trans_out_type` | `RefundTransOutType` | `*string` | JSON body | 未标注 | 指定退款账号类型。 |
+| `store_id` | `StoreID` | `*string` | JSON body | 未标注 | 商户门店编号，由商家自定义。 |
+| `terminal_id` | `TerminalID` | `*string` | JSON body | 未标注 | 商户的终端编号。 |
 
 注意事项：
 
@@ -100,8 +111,8 @@ SDK 不自动重试退款。
 
 - 官方接口：[`alipay.trade.refund.apply`](https://opendocs.alipay.com/apis/05wbvf)
 - 路由：`POST /v3/alipay/trade/refund/apply`
-- 请求类型：[RefundApplyRequest](refund_request.go#L50)
-- 响应类型：[RefundApplyResponse](refund_response.go#L88)
+- 请求类型：[RefundApplyRequest](refund_request.go#L72)
+- 响应类型：[RefundApplyResponse](refund_response.go#L130)
 
 商户通过此接口提交异步退款请求，支付宝受理后，将会异步进行退款处理。退款完成后异步通知商户退款结果，商户可以通过alipay.trade.fastpay.refund.query接口查询退款状态。
 
@@ -121,6 +132,7 @@ out_request_no 标识一次退款请求，同一笔交易多次退款需保证�
 | `store_id` | `StoreID` | `*string` | JSON body | 未标注 | 商户的门店编号<br>SDK 字段说明：商户门店编号。 |
 | `terminal_id` | `TerminalID` | `*string` | JSON body | 未标注 | 商户的终端编号<br>SDK 字段说明：商户终端编号。 |
 | `refund_fund_details` | `RefundFundDetails` | [`[]RefundFundDetail`](#model-refundfunddetail) | JSON body | 未标注 | 退款资金明细<br> 注：目前只有SETTLE_OFFLINE_GROUP产品的退款支持该字段<br>SDK 字段说明：退款资金明细；仅 SETTLE_OFFLINE_GROUP<br>产品支持。 |
+| `extend_params` | `ExtendParams` | `*string` | JSON body | 未标注 | 商户传入业务信息，具体值要和支付宝约定，格式为json格式。 |
 
 注意事项：
 

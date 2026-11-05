@@ -52,6 +52,92 @@ type QueryResponse struct {
 	TerminalID *string `json:"terminal_id,omitempty"`
 	// ExtInfos 是交易额外信息，特殊场景下与支付宝约定返回的 JSON 文本。
 	ExtInfos *string `json:"ext_infos,omitempty"`
+	// AdditionalStatus 表示交易附加状态。
+	AdditionalStatus *string `json:"additional_status,omitempty"`
+	// AlipayStoreID 表示支付宝店铺编号。
+	AlipayStoreID *string `json:"alipay_store_id,omitempty"`
+	// AlipaySubMerchantID 表示间连商户在支付宝端的商户编号。
+	AlipaySubMerchantID *string `json:"alipay_sub_merchant_id,omitempty"`
+	// AsyncPayApplyStatus 表示异步支付受理状态，仅异步支付模式且query_options指定async_pay_info时返回。
+	AsyncPayApplyStatus *string `json:"async_pay_apply_status,omitempty"`
+	// AuthTradePayMode 表示预授权支付模式，该参数仅在信用预授权支付场景下返回。
+	AuthTradePayMode *string `json:"auth_trade_pay_mode,omitempty"`
+	// BizSettleMode 表示账期结算标识，指已完成支付的订单会进行账期管控，不会实时结算。
+	BizSettleMode *BizSettleMode `json:"biz_settle_mode,omitempty"`
+	// BkAgentRespInfo 是收单机构的间联交易返回信息。
+	BkAgentRespInfo *BkAgentRespInfo `json:"bkagent_resp_info,omitempty"`
+	// Body 表示订单描述。
+	Body *string `json:"body,omitempty"`
+	// BuyerUserName 表示买家名称。
+	BuyerUserName *string `json:"buyer_user_name,omitempty"`
+	// CashierType 表示收银台类型。
+	CashierType *string `json:"cashier_type,omitempty"`
+	// ChargeAmount 表示该笔交易针对收款方的收费金额；单位：元。
+	ChargeAmount *string `json:"charge_amount,omitempty"`
+	// ChargeFlags 表示费率活动标识。
+	ChargeFlags *string `json:"charge_flags,omitempty"`
+	// ChargeInfoList 表示计费信息列表。
+	ChargeInfoList []ChargeInfo `json:"charge_info_list,omitempty"`
+	// CreditBizOrderID 表示信用业务单号。
+	CreditBizOrderID *string `json:"credit_biz_order_id,omitempty"`
+	// CreditPayMode 表示信用支付模式。
+	CreditPayMode *string `json:"credit_pay_mode,omitempty"`
+	// EnterprisePayInfo 是因公支付信息。
+	EnterprisePayInfo *EnterprisePayInfo `json:"enterprise_pay_info,omitempty"`
+	// ExternalPayerInfo 是外部付款方信息。
+	ExternalPayerInfo *ExternalPayerInfo `json:"external_payer_info,omitempty"`
+	// FulfillmentDetailList 表示履约详情列表。
+	FulfillmentDetailList []FulfillmentDetail `json:"fulfillment_detail_list,omitempty"`
+	// HbFqPayInfo 是花呗分期付款信息。
+	HbFqPayInfo *HbFqPayInfo `json:"hb_fq_pay_info,omitempty"`
+	// HybAmount 表示惠营宝回票金额。
+	HybAmount *string `json:"hyb_amount,omitempty"`
+	// IndustrySpecDetail 表示行业特殊信息（例如在医保卡支付业务中，向用户返回医疗信息）。
+	IndustrySpecDetail *string `json:"industry_sepc_detail,omitempty"`
+	// IndustrySpecDetailAcc 表示行业特殊信息-个账相关。
+	IndustrySpecDetailAcc *string `json:"industry_sepc_detail_acc,omitempty"`
+	// IndustrySpecDetailGov 表示行业特殊信息-统筹相关。
+	IndustrySpecDetailGov *string `json:"industry_sepc_detail_gov,omitempty"`
+	// IntactChargeInfoList 表示完整的收费信息。
+	IntactChargeInfoList []IntactChargeInfo `json:"intact_charge_info_list,omitempty"`
+	// OpenID 表示买家支付宝用户号，该字段将废弃，不要使用。
+	OpenID *string `json:"open_id,omitempty"`
+	// PassbackParams 表示公用回传参数。
+	PassbackParams *string `json:"passback_params,omitempty"`
+	// PayAmount 表示支付币种订单金额。
+	PayAmount *string `json:"pay_amount,omitempty"`
+	// PayCurrency 表示订单支付币种。
+	PayCurrency *string `json:"pay_currency,omitempty"`
+	// PaymentInfoWithIDList 表示带支付宝支付id的信息，暂不对外开放。
+	PaymentInfoWithIDList []PaymentInfoWithID `json:"payment_info_with_id_list,omitempty"`
+	// PeriodScene 表示该字段用于描述当前账期交易的场景。
+	PeriodScene *string `json:"period_scene,omitempty"`
+	// PreAuthPayAmount 表示当用户使用芝麻信用先享后付时，会返回该字段，代表整笔交易的原始待履约金额，单位元。
+	PreAuthPayAmount *string `json:"pre_auth_pay_amount,omitempty"`
+	// PurchaseEntity 表示支付宝钱包跨境支付交易的购汇主体，ALIPAYHK-境外香港购汇实体，3008境内购汇实体。
+	PurchaseEntity *string `json:"purchase_entity,omitempty"`
+	// ReceiptCurrencyType 表示收款资金类型，当交易收款资金为数字人民币时返回值为“DC”，否则不返回该字段。
+	ReceiptCurrencyType *string `json:"receipt_currency_type,omitempty"`
+	// ReqGoodsDetail 表示支付请求的商品明细列表。
+	ReqGoodsDetail []GoodsDetail `json:"req_goods_detail,omitempty"`
+	// SettleAmount 表示结算币种订单金额。
+	SettleAmount *string `json:"settle_amount,omitempty"`
+	// SettleCurrency 是结算币种。
+	SettleCurrency *string `json:"settle_currency,omitempty"`
+	// SettleTransRate 表示结算币种兑换标价币种汇率。
+	SettleTransRate *string `json:"settle_trans_rate,omitempty"`
+	// SettlementID 表示支付清算编号，用于清算对账。
+	SettlementID *string `json:"settlement_id,omitempty"`
+	// Subject 表示订单标题。
+	Subject *string `json:"subject,omitempty"`
+	// TapPayInfo 是碰一下支付信息。
+	TapPayInfo *TapPayInfo `json:"tap_pay_info,omitempty"`
+	// TransCurrency 是订单的交易币种。
+	TransCurrency *string `json:"trans_currency,omitempty"`
+	// TransPayRate 表示标价币种兑换支付币种汇率。
+	TransPayRate *string `json:"trans_pay_rate,omitempty"`
+	// UnpaidReason 表示有限条件下返回当前订单未支付原因。
+	UnpaidReason *string `json:"unpaid_reason,omitempty"`
 }
 
 // PreCreateResponse 是 alipay.trade.precreate 的业务响应。
@@ -122,6 +208,62 @@ type PayResponse struct {
 	// AsyncPayApplyStatus 是异步支付受理状态；仅异步支付模式且
 	// query_options 指定 async_pay_info 时返回。S 表示受理成功。
 	AsyncPayApplyStatus *string `json:"async_pay_apply_status,omitempty"`
+	// AdvanceAmount 表示先享后付2.0垫资金额,不返回表示没有走垫资，非空表示垫资支付的金额。
+	AdvanceAmount *string `json:"advance_amount,omitempty"`
+	// AsyncPaymentMode 表示异步支付模式，目前有五种值。
+	AsyncPaymentMode *string `json:"async_payment_mode,omitempty"`
+	// BkAgentRespInfo 是收单机构的间联交易返回信息。
+	BkAgentRespInfo *BkAgentRespInfo `json:"bkagent_resp_info,omitempty"`
+	// BusinessParams 表示商户传入业务信息，具体值要和支付宝约定。
+	BusinessParams *string `json:"business_params,omitempty"`
+	// BuyerUserName 表示买家名称。
+	BuyerUserName *string `json:"buyer_user_name,omitempty"`
+	// CanTurnToAppPay 表示是否可以转为app支付，仅当商户代扣失败场景才会返回该字段信息。
+	CanTurnToAppPay *string `json:"can_turn_to_app_pay,omitempty"`
+	// ChargeAmount 表示该笔交易针对收款方的收费金额。
+	ChargeAmount *string `json:"charge_amount,omitempty"`
+	// ChargeFlags 表示费率活动标识。
+	ChargeFlags *string `json:"charge_flags,omitempty"`
+	// ChargeInfoList 是本次交易的收费信息。
+	ChargeInfoList *ChargeInfo `json:"charge_info_list,omitempty"`
+	// CreditBizOrderID 表示信用业务单号。
+	CreditBizOrderID *string `json:"credit_biz_order_id,omitempty"`
+	// CreditBizOrderStatus 表示先享免密下单之后，芝麻信用侧的业务单状态。
+	CreditBizOrderStatus *string `json:"credit_biz_order_status,omitempty"`
+	// CreditPayMode 表示信用支付模式。
+	CreditPayMode *string `json:"credit_pay_mode,omitempty"`
+	// DiscountGoodsDetail 表示本次交易支付所使用的单品券优惠的商品优惠信息。
+	DiscountGoodsDetail *string `json:"discount_goods_detail,omitempty"`
+	// EnterprisePayInfo 是因公支付信息。
+	EnterprisePayInfo *EnterprisePayInfo `json:"enterprise_pay_info,omitempty"`
+	// HybAmount 表示惠营宝回票金额。
+	HybAmount *string `json:"hyb_amount,omitempty"`
+	// OpenID 表示买家支付宝用户号,该参数已废弃，请不要使用。
+	OpenID *string `json:"open_id,omitempty"`
+	// PayAmount 表示支付币种订单金额。
+	PayAmount *string `json:"pay_amount,omitempty"`
+	// PayCurrency 表示支付币种。
+	PayCurrency *string `json:"pay_currency,omitempty"`
+	// PreAuthPayAmount 表示当用户使用芝麻信用先享后付时，会返回该字段，代表整笔交易的原始待履约金额，单位元。
+	PreAuthPayAmount *string `json:"pre_auth_pay_amount,omitempty"`
+	// PurchaseEntity 表示支付宝钱包跨境支付交易的购汇主体，ALIPAYHK-境外香港购汇实体，3008境内购汇实体。
+	PurchaseEntity *string `json:"purchase_entity,omitempty"`
+	// ReceiptCurrencyType 表示收款资金类型，当交易收款资金为数字人民币时返回值为“DC”，否则不返回该字段。
+	ReceiptCurrencyType *string `json:"receipt_currency_type,omitempty"`
+	// SettleAmount 表示结算币种订单金额。
+	SettleAmount *string `json:"settle_amount,omitempty"`
+	// SettleCurrency 是结算币种。
+	SettleCurrency *string `json:"settle_currency,omitempty"`
+	// SettleTransRate 表示结算币种兑换标价币种汇率。
+	SettleTransRate *string `json:"settle_trans_rate,omitempty"`
+	// SettlementID 表示支付清算编号，用于清算对账使用。
+	SettlementID *string `json:"settlement_id,omitempty"`
+	// TapPayInfo 是碰一下支付信息。
+	TapPayInfo *TapPayInfo `json:"tap_pay_info,omitempty"`
+	// TransCurrency 表示标价币种, total_amount对应的币种单位。
+	TransCurrency *string `json:"trans_currency,omitempty"`
+	// TransPayRate 表示标价币种兑换支付币种汇率。
+	TransPayRate *string `json:"trans_pay_rate,omitempty"`
 }
 
 // CreateResponse 是 alipay.trade.create 的业务响应。

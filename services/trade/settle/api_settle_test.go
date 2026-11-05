@@ -2,6 +2,7 @@ package settle_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -113,6 +114,33 @@ func TestNewAPISpecs(t *testing.T) {
 				t.Error("result must be passed through")
 			}
 		})
+	}
+}
+
+func TestSettleConfirmEncodesPeriodOnSettlement(t *testing.T) {
+	svc, executor := newRecordingService(t)
+	executor.result = verifiedResult(`{}`)
+	_, err := svc.SettleConfirm(t.Context(), settle.SettleConfirmRequest{
+		TradeNo: "T1", OutRequestNo: "C1",
+		SettleInfo: trade.SettleInfo{
+			SettlePeriodTime:  ptr("7d"),
+			SettleDetailInfos: []trade.SettleDetailInfo{{TransInType: "defaultSettle"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		SettleInfo struct {
+			Period  string                       `json:"settle_period_time"`
+			Details []map[string]json.RawMessage `json:"settle_detail_infos"`
+		} `json:"settle_info"`
+	}
+	if err := json.Unmarshal(executor.req.Params.JSON, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.SettleInfo.Period != "7d" || len(body.SettleInfo.Details) != 1 || body.SettleInfo.Details[0]["settle_period_time"] != nil {
+		t.Fatalf("unexpected settlement fields: %s", executor.req.Params.JSON)
 	}
 }
 

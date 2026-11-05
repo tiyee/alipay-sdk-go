@@ -27,9 +27,9 @@ type SearchSubServiceKeywordBatchQueryRequest struct {
 	// Status 是审核状态，服务关键词的审核状态，枚举值，不传该字段表示查询所有状态
 	Status *string `json:"status,omitempty" query:"status,omitempty"`
 	// PageNumber 是分页参数，分页查询时使用
-	PageNumber *string `json:"page_number,omitempty" query:"page_number,omitempty"`
+	PageNumber *int64 `json:"page_number,omitempty" query:"page_number,required"`
 	// PageSize 是分页参数，分页查询时使用
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // SearchSubServiceKeywordQueryStatusRequest is the request type for alipay.open.search.subservicekeyword.querystatus.

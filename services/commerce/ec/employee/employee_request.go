@@ -133,9 +133,9 @@ type EcEmployeeIDListQueryRequest struct {
 	// DepartmentId 是部门id
 	DepartmentId *string `json:"department_id,omitempty" query:"department_id,omitempty"`
 	// PageNum 是查询页数
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是每页查询大小，限制最大为1000
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // EcEmployeeInfoQueryRequest is the query request model for alipay.commerce.ec.employee.info.query.

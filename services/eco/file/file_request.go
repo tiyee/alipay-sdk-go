@@ -12,5 +12,5 @@ type FilePathQueryRequest struct {
 	// FileName 是文件名称。	注意：必须带上文件扩展名，不然会导致后续发起流程校验不通过。示例：合同.pdf。
 	FileName *string `json:"file_name,omitempty" query:"file_name,omitempty"`
 	// FileSize 是文件大小，单位byte。最大允许上传30Mb
-	FileSize *string `json:"file_size,omitempty" query:"file_size,omitempty"`
+	FileSize *int64 `json:"file_size,omitempty" query:"file_size,omitempty"`
 }

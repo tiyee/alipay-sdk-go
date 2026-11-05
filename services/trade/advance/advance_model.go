@@ -25,5 +25,5 @@ type WaitRepaymentOrderInfo struct {
 	// OrigBizOrderID 是原始业务单号，通常为支付宝交易号。
 	OrigBizOrderID *string `json:"orig_biz_order_id,omitempty"`
 	// WaitRepaymentAmount 是垫资金额。
-	WaitRepaymentAmount *string `json:"wait_repayment_amount,omitempty"`
+	WaitRepaymentAmount *int64 `json:"wait_repayment_amount,omitempty"`
 }

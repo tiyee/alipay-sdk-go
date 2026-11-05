@@ -112,12 +112,12 @@
 
 查询某个部门下员工id列表
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `enterprise_id` | `EnterpriseId` | `*string` | query | 否 | 企业id |
 | `department_id` | `DepartmentId` | `*string` | query | 否 | 部门id |
-| `page_num` | `PageNum` | `*string` | query | 否 | 查询页数 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页查询大小，限制最大为1000 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 查询页数 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 每页查询大小，限制最大为1000 |
 
 <a id="api-ecemployeeinfomodify"></a>
 

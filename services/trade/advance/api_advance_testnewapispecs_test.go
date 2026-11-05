@@ -2,6 +2,7 @@ package advance_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/tiyee/alipay-sdk-go/core"
@@ -57,5 +58,38 @@ func TestNewAPISpecs(t *testing.T) {
 				t.Error("result must be passed through")
 			}
 		})
+	}
+}
+
+func TestRiskConsultAgreementAndRepaymentAmounts(t *testing.T) {
+	svc, e := newRecordingService(t)
+	req := advance.AdvanceConsultRequest{ConsultScene: ptr(advance.AdvanceSceneOrderRiskEvaluation)}
+	for _, agreement := range []*string{nil, ptr("")} {
+		req.AgreementNo = agreement
+		_, err := svc.AdvanceConsult(t.Context(), req)
+		var v *core.ValidationError
+		if !errors.As(err, &v) || v.Field != "agreement_no" || e.called {
+			t.Fatalf("invalid agreement reached executor: %v", err)
+		}
+	}
+	req.AgreementNo = ptr("agreement")
+	req.EstimatedOrderAmount = ptr("100000000.01")
+	_, err := svc.AdvanceConsult(t.Context(), req)
+	var val *core.ValidationError
+	if !errors.As(err, &val) || val.Field != "estimated_order_amount" || e.called {
+		t.Fatalf("invalid amount reached executor: %v", err)
+	}
+	req.EstimatedOrderAmount = ptr("100000000.00")
+	e.result = verifiedResult(`{"wait_repayment_amount":"10.00","wait_repayment_order_infos":[{"wait_repayment_amount":9007199254740993}]}`)
+	resp, err := svc.AdvanceConsult(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.req.Params.Form.Get("agreement_no") != "agreement" || resp.Data.WaitRepaymentAmount == nil || *resp.Data.WaitRepaymentAmount != "10.00" || len(resp.Data.WaitRepaymentOrderInfos) != 1 {
+		t.Fatal("missing request or response fields")
+	}
+	amount := resp.Data.WaitRepaymentOrderInfos[0].WaitRepaymentAmount
+	if amount == nil || *amount != 9007199254740993 {
+		t.Fatalf("unexpected detail amount %v", amount)
 	}
 }

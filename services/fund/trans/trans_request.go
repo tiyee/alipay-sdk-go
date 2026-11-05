@@ -114,6 +114,10 @@ type UniTransferRequest struct {
 	// TransferSceneReportInfos 是转账场景信息；26 年及以后新接入
 	// 商户必须传入，字段说明见官方转账场景信息字段说明。
 	TransferSceneReportInfos []TransferSceneReportInfo `json:"transfer_scene_report_infos,omitempty"`
+	// MultipleCurrencyDetail 是多币种转账金额与币种明细。
+	MultipleCurrencyDetail *MultipleCurrencyDetail `json:"mutiple_currency_detail,omitempty"`
+	// SignData 是转账请求的原始签名信息。
+	SignData *SignData `json:"sign_data,omitempty"`
 }
 
 // ToAccountTransferRequest 是 alipay.fund.trans.toaccount.transfer
@@ -176,7 +180,7 @@ type PayRequest struct {
 }
 
 // RefundRequest 是 alipay.fund.trans.refund（资金退回）的请求。
-// order_id、out_request_no、refund_amount 必填；退回失败重新提交
+// order_id、biz_scene、out_request_no、refund_amount 必填；退回失败重新提交
 // 必须沿用原 out_request_no。写操作：SDK 不自动重试。
 type RefundRequest struct {
 	// OrderID 是原转账的支付宝订单号。
@@ -185,16 +189,16 @@ type RefundRequest struct {
 	OutRequestNo string `json:"out_request_no"`
 	// RefundAmount 是退款金额，不能大于订单金额，单位为元。
 	RefundAmount string `json:"refund_amount"`
-	// RefundReason 是资金退回原因。
-	RefundReason *string `json:"refund_reason,omitempty"`
 	// Remark 是资金退回备注。
 	Remark *string `json:"remark,omitempty"`
 	// BizScene 是场景码。
-	BizScene *string `json:"biz_scene,omitempty"`
+	BizScene string `json:"biz_scene"`
 	// ProductCode 是产品码。
 	ProductCode *string `json:"product_code,omitempty"`
 	// PassbackParams 是公用回传参数。
 	PassbackParams *string `json:"passback_params,omitempty"`
+	// BusinessParams 表示JSON格式，传递业务扩展参数，使用前请与支付宝工程师联系！。
+	BusinessParams *string `json:"business_params,omitempty"`
 }
 
 func (r UniTransferRequest) validate() error {
@@ -259,6 +263,9 @@ func (r RefundRequest) validate() error {
 	}
 	if r.OutRequestNo == "" {
 		return &core.ValidationError{Field: "out_request_no", Reason: "out_request_no is required"}
+	}
+	if r.BizScene == "" {
+		return &core.ValidationError{Field: "biz_scene", Reason: "biz_scene is required"}
 	}
 	return validAmount(r.RefundAmount, "refund_amount")
 }

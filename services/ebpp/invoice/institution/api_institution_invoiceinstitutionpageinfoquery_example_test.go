@@ -90,8 +90,8 @@ func ExampleService_InvoiceInstitutionPageInfoQuery() {
 	}
 
 	enterpriseId := "2088000194958956"
-	pageNum := "10"
-	pageSize := "100"
+	pageNum := int64(10)
+	pageSize := int64(100)
 	response, err := svc.InvoiceInstitutionPageInfoQuery(ctx, institution.InvoiceInstitutionPageInfoQueryRequest{
 		EnterpriseId: &enterpriseId,
 		PageNum:      &pageNum,

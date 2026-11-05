@@ -90,11 +90,13 @@ func ExampleService_ActivityMerchantBatchQuery() {
 	}
 
 	merchantId := "2088202967380463"
-	pageNum := "1"
+	pageNum := int64(1)
+	pageSize := int64(20)
 	response, err := svc.ActivityMerchantBatchQuery(ctx, merchant.ActivityMerchantBatchQueryRequest{
 		ActivityId: "2016042700826004508401111111",
 		MerchantId: &merchantId,
 		PageNum:    &pageNum,
+		PageSize:   &pageSize,
 	})
 	if err != nil {
 		fmt.Println("接口调用失败")

@@ -141,6 +141,8 @@ func QueryBill(ctx context.Context, client *core.Client,
 
 `Operation[BillRequest, BillResponse]` 同时绑定请求与响应类型。调用方检查 error 后才能使用结果数据；下载地址缺失时按业务响应处理，不能将 HTTP 成功自动视为有可下载文件。
 
+必填整数或布尔 query 参数可声明为 `*int64` 或 `*bool` 并标注 `query:"name,required"`。传入 nil 会得到 `*core.ValidationError`，显式传入 0 或 false 会按原值编码。可选参数使用 `query:"name,omitempty"`。
+
 ## 4. 用户自己的 Service
 
 需要组合多个接口、复用 Operation 或注入测试执行器时，用户可定义自己的 Service，依赖公开的 `core.Executor`：

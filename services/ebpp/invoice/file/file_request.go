@@ -14,5 +14,5 @@ type InvoiceFileOutputQueryRequest struct {
 	// Scene 是发票pdf文件下载应用场景。固定为 INVOICE_EXPENSE  表示发票报销。
 	Scene *string `json:"scene,omitempty" query:"scene,omitempty"`
 	// SkipExpenseProgressSync 是是否跳过发票报销状态同步；当为true时，跳过报销状态同步校验。默认为false，需要先做报销状态同步
-	SkipExpenseProgressSync *string `json:"skip_expense_progress_sync,omitempty" query:"skip_expense_progress_sync,omitempty"`
+	SkipExpenseProgressSync *bool `json:"skip_expense_progress_sync,omitempty" query:"skip_expense_progress_sync,omitempty"`
 }

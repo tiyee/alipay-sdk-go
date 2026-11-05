@@ -43,6 +43,8 @@ type AccountLogItem struct {
 	StoreName *string `json:"store_name,omitempty"`
 	// TransMemo 是账务备注；不可依赖此字段进行对账。
 	TransMemo *string `json:"trans_memo,omitempty"`
+	// ComplementInfo 表示账单的补全信息，用于特殊场景，普通商户不需要传值，对账时可忽略。
+	ComplementInfo *string `json:"complement_info,omitempty"`
 }
 
 // BailDetailResult 是支付宝官方 V3 OpenAPI 模型。

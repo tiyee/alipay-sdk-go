@@ -4,11 +4,18 @@
 package protocol
 
 import (
+	"net/url"
+	"regexp"
 	"slices"
 	"strings"
-
-	"net/url"
 )
+
+const notifyNameChars = "[A-Za-z0-9_]+"
+
+var notifyBoundary = regexp.MustCompile("&" + notifyNameChars + "=")
+
+// HasNotifyBoundary 报告单次解码的字段值是否可能被解释为另一个通知字段。
+func HasNotifyBoundary(value string) bool { return notifyBoundary.MatchString(value) }
 
 // 网关协议的公共参数名与固定取值。
 const (

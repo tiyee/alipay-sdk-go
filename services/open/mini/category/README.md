@@ -41,9 +41,9 @@
 
 请求约束：MiniCategoryQueryRequest is the request type for alipay.open.mini.category.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `is_filter` | `IsFilter` | `*string` | query | 否 | 是否过滤小程序不可用类目。枚举值如下： true：表示过滤不可用类目。 false：表示不过滤不可用类目。 |
+| `is_filter` | `IsFilter` | `*bool` | query | 否 | 是否过滤小程序不可用类目。枚举值如下： true：表示过滤不可用类目。 false：表示不过滤不可用类目。 |
 
 <a id="api-minicategoryrequirequery"></a>
 

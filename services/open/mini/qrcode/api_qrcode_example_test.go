@@ -91,8 +91,8 @@ func ExampleService_MiniQRCodeQuery() {
 		return
 	}
 
-	pageNo := "1"
-	pageSize := "10"
+	pageNo := int64(1)
+	pageSize := int64(10)
 	response, err := svc.MiniQRCodeQuery(ctx, qrcode.MiniQRCodeQueryRequest{
 		PageNo:   &pageNo,
 		PageSize: &pageSize,

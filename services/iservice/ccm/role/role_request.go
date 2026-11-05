@@ -50,9 +50,9 @@ type CcmRolePageQueryRequest struct {
 	// Name 是角色名称
 	Name *string `json:"name,omitempty" query:"name,omitempty"`
 	// PageNum 是查询结果的页码，起始值为 1，默认值为 1
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是分页查询时设置的每页记录数，最大值 100 行，默认为 10
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 	// CcsInstanceId 是部门id（即租户实例ID、数据权限ID）
 	CcsInstanceId *string `json:"ccs_instance_id,omitempty" query:"ccs_instance_id,omitempty"`
 }

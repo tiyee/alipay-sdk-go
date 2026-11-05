@@ -60,10 +60,10 @@
 
 请求约束：MiniQRCodeQueryRequest is the request type for alipay.open.mini.qrcode.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `page_no` | `PageNo` | `*string` | query | 否 | 页码 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页条数，最大为10 |
+| `page_no` | `PageNo` | `*int64` | query | 是 | 页码 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 每页条数，最大为10 |
 
 <a id="api-miniqrcodeunbind"></a>
 

@@ -39,7 +39,7 @@
 
 可通过该接口查询用户在某商户可用的全部券，可用于商户的小程序/H5中，用户"我的优惠券"或"提交订单页"展示优惠信息。只能查询商户配的券，无法查询平台优惠券。
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `user_id` | `UserId` | `*string` | query | 否 | 支付宝用户 id |
 | `open_id` | `OpenId` | `*string` | query | 否 | 支付宝用户openId |
@@ -47,9 +47,9 @@
 | `belong_merchant_id` | `BelongMerchantId` | `*string` | query | 否 | 券归属商户 |
 | `sender_merchant_id` | `SenderMerchantId` | `*string` | query | 否 | 券发放商户 |
 | `voucher_status` | `VoucherStatus` | `*string` | query | 否 | 券状态，其中已过期状态可查询6个月内的数据 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 分页查询页码 |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 分页查询页码 |
 | `merchant_access_mode` | `MerchantAccessMode` | `*string` | query | 否 | 商户接入模式 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 分页查询单页数据条数 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 分页查询单页数据条数 |
 
 <a id="api-activityuserqueryvoucher"></a>
 

@@ -35,13 +35,13 @@ type CcmSwTreeCategoryBatchQueryRequest struct {
 	// CcsInstanceId 是子部门ID，不传为默认部门
 	CcsInstanceId *string `json:"ccs_instance_id,omitempty" query:"ccs_instance_id,omitempty"`
 	// LibraryId 是知识库ID
-	LibraryId *string `json:"library_id,omitempty" query:"library_id,omitempty"`
+	LibraryId *int64 `json:"library_id,omitempty" query:"library_id,required"`
 	// Name 是节点名称
 	Name *string `json:"name,omitempty" query:"name,omitempty"`
 	// PageNum 是页数，page_size不能为空
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,omitempty"`
 	// PageSize 是页显示大小，page_num不能为空
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,omitempty"`
 }
 
 // CcmSwTreeCategoryDeleteRequest is the request model for alipay.iservice.ccm.sw.treecategory.delete.

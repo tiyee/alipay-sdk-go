@@ -48,13 +48,13 @@
 
 知识库-节点-批量查询
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `ccs_instance_id` | `CcsInstanceId` | `*string` | query | 否 | 子部门ID，不传为默认部门 |
-| `library_id` | `LibraryId` | `*string` | query | 否 | 知识库ID |
+| `library_id` | `LibraryId` | `*int64` | query | 是 | 知识库ID |
 | `name` | `Name` | `*string` | query | 否 | 节点名称 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页数，page_size不能为空 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 页显示大小，page_num不能为空 |
+| `page_num` | `PageNum` | `*int64` | query | 条件 | 页数，page_size不能为空 |
+| `page_size` | `PageSize` | `*int64` | query | 条件 | 页显示大小，page_num不能为空 |
 
 <a id="api-ccmswtreecategorycreate"></a>
 

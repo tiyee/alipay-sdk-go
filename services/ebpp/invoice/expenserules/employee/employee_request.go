@@ -31,9 +31,9 @@ type InvoiceExpenseRulesEmployeeQueryRequest struct {
 	// StandardId 是费控规则ID
 	StandardId *string `json:"standard_id,omitempty" query:"standard_id,omitempty"`
 	// PageNum 是页数
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是页大小
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
 
 // InvoiceExpenseRulesEmployeeRulesQueryRequest is the query request model for alipay.ebpp.invoice.expenserules.employeerules.query.
@@ -47,7 +47,7 @@ type InvoiceExpenseRulesEmployeeRulesQueryRequest struct {
 	// EmployeeOpenId 是切换open_id后使用此字段：员工的open_id
 	EmployeeOpenId *string `json:"employee_open_id,omitempty" query:"employee_open_id,omitempty"`
 	// PageNum 是页码，默认值为1
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,omitempty"`
 	// PageSize 是每页行数，默认值为20
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,omitempty"`
 }

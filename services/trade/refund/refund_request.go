@@ -29,6 +29,26 @@ type RefundRequest struct {
 	QueryOptions []RefundQueryOption `json:"query_options,omitempty"`
 	// RelatedSettleConfirmNo 用于账期交易确认结算后退款。
 	RelatedSettleConfirmNo *string `json:"related_settle_confirm_no,omitempty"`
+	// GoodsDetail 表示退款包含的商品列表信息，Json格式。
+	GoodsDetail []trade.GoodsDetail `json:"goods_detail,omitempty"`
+	// OperatorID 表示商户的操作员编号。
+	OperatorID *string `json:"operator_id,omitempty"`
+	// OrgPID 表示银行间联模式的机构 PID。
+	OrgPID *string `json:"org_pid,omitempty"`
+	// RefundAdvanceAccount 表示指定垫资退款账号主体，可能是用户id或登录名。
+	RefundAdvanceAccount *string `json:"refund_advance_account,omitempty"`
+	// RefundAdvanceAccountType 表示指定垫资退款账号的类型，取值范围：default，userId，loginName。
+	RefundAdvanceAccountType *string `json:"refund_advance_account_type,omitempty"`
+	// RefundCurrency 表示订单退款币种信息。
+	RefundCurrency *string `json:"refund_currency,omitempty"`
+	// RefundTransOut 表示指定退款账号，对应指定账号退款合约中的约定账号。
+	RefundTransOut *string `json:"refund_trans_out,omitempty"`
+	// RefundTransOutType 表示指定退款账号类型。
+	RefundTransOutType *string `json:"refund_trans_out_type,omitempty"`
+	// StoreID 表示商户门店编号，由商家自定义。
+	StoreID *string `json:"store_id,omitempty"`
+	// TerminalID 表示商户的终端编号。
+	TerminalID *string `json:"terminal_id,omitempty"`
 }
 
 // QueryRefundRequest 是 alipay.trade.fastpay.refund.query 的请求。
@@ -42,6 +62,8 @@ type QueryRefundRequest struct {
 	OutTradeNo string `json:"out_trade_no,omitempty"`
 	// QueryOptions 定制同步额外返回的信息字段。
 	QueryOptions []RefundQueryOption `json:"query_options,omitempty"`
+	// OrgPID 表示银行间联模式的机构 PID。
+	OrgPID *string `json:"org_pid,omitempty"`
 }
 
 // RefundApplyRequest 是 alipay.trade.refund.apply（异步退款受理）的请求。
@@ -70,6 +92,8 @@ type RefundApplyRequest struct {
 	// RefundFundDetails 是退款资金明细；仅 SETTLE_OFFLINE_GROUP
 	// 产品支持。
 	RefundFundDetails []RefundFundDetail `json:"refund_fund_details,omitempty"`
+	// ExtendParams 表示商户传入业务信息，具体值要和支付宝约定，格式为json格式。
+	ExtendParams *string `json:"extend_params,omitempty"`
 }
 
 func (r RefundApplyRequest) validate() error {

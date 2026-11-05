@@ -2,6 +2,7 @@ package trans_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -85,5 +86,26 @@ func TestFundValidations(t *testing.T) {
 				t.Error("validation failure must not send request")
 			}
 		})
+	}
+}
+
+func TestRefundRequiresSceneAndUsesDocumentedFields(t *testing.T) {
+	svc, executor := newService(t)
+	req := trans.RefundRequest{OrderID: "order", OutRequestNo: "request", RefundAmount: "1.00", Remark: ptr("reason"), BusinessParams: ptr("extra")}
+	_, err := svc.Refund(t.Context(), req)
+	var missing *core.ValidationError
+	if !errors.As(err, &missing) || missing.Field != "biz_scene" || executor.called {
+		t.Fatalf("missing scene: %v, executed %v", err, executor.called)
+	}
+	req.BizScene = "REFUND"
+	if _, err = svc.Refund(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(executor.req.Params.JSON, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if fields["refund_reason"] != nil || string(fields["remark"]) != `"reason"` || string(fields["business_params"]) != `"extra"` || string(fields["biz_scene"]) != `"REFUND"` {
+		t.Fatalf("refund body = %s", executor.req.Params.JSON)
 	}
 }

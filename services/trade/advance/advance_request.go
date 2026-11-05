@@ -2,6 +2,7 @@ package advance
 
 import (
 	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/internal/tradevalidate"
 )
 
 // AdvanceConsultRequest 是 alipay.trade.advance.consult（订单咨询，
@@ -37,9 +38,15 @@ type AdvanceConsultRequest struct {
 
 func (r AdvanceConsultRequest) validate() error {
 	riskEval := r.ConsultScene != nil && *r.ConsultScene == AdvanceSceneOrderRiskEvaluation
+	if riskEval && (r.AgreementNo == nil || *r.AgreementNo == "") {
+		return &core.ValidationError{Field: "agreement_no", Reason: "agreement_no is required for ORDER_RISK_EVALUATION"}
+	}
 	if !riskEval && (r.AlipayUserID == nil || *r.AlipayUserID == "") {
 		return &core.ValidationError{Field: "alipay_user_id",
 			Reason: "alipay_user_id is required unless consult_scene is ORDER_RISK_EVALUATION"}
+	}
+	if r.EstimatedOrderAmount != nil {
+		return tradevalidate.OrderAmount(*r.EstimatedOrderAmount, "estimated_order_amount")
 	}
 	return nil
 }

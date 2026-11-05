@@ -20,9 +20,9 @@ type MiniTemplateUsageQueryRequest struct {
 	// TemplateId 是小程序模板APPID
 	TemplateId *string `json:"template_id,omitempty" query:"template_id,omitempty"`
 	// PageNum 是查询的页数，起始为 1（第一页） 。默认第一页。
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,omitempty"`
 	// PageSize 是每页的数量，最多查询50个，默认查询10个
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,omitempty"`
 	// TemplateVersion 是模板小程序的版本号
 	TemplateVersion *string `json:"template_version,omitempty" query:"template_version,omitempty"`
 	// BundleId 是小程序客户端类型，默认为支付宝端。常见支持如下客户端：	com.alipay.alipaywallet：支付宝端；	com.alibaba.android.rimet：DINGDING端；	com.amap.app：高德端；	com.alibaba.ailabs.genie.webapps：天猫精灵端；	com.alipay.iot.xpaas：支付宝IoT端。	如需更多端投放，请联系业务BD。

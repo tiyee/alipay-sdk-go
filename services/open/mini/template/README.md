@@ -60,10 +60,10 @@
 
 请求约束：MiniTemplateUsageQueryRequest is the request type for alipay.open.mini.template.usage.query.
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `template_id` | `TemplateId` | `*string` | query | 否 | 小程序模板APPID |
-| `page_num` | `PageNum` | `*string` | query | 否 | 查询的页数，起始为 1（第一页） 。默认第一页。 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页的数量，最多查询50个，默认查询10个 |
+| `page_num` | `PageNum` | `*int64` | query | 否 | 查询的页数，起始为 1（第一页） 。默认第一页。 |
+| `page_size` | `PageSize` | `*int64` | query | 否 | 每页的数量，最多查询50个，默认查询10个 |
 | `template_version` | `TemplateVersion` | `*string` | query | 否 | 模板小程序的版本号 |
 | `bundle_id` | `BundleId` | `*string` | query | 否 | 小程序客户端类型，默认为支付宝端。常见支持如下客户端： com.alipay.alipaywallet：支付宝端； com.alibaba.android.rimet：DINGDING端； com.amap.app：高德端； com.alibaba.ailabs.genie.webapps：天猫精灵端； com.alipay.iot.xpaas：支付宝IoT端。 如需更多端投放，请联系业务BD。 |

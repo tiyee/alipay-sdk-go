@@ -38,7 +38,7 @@
 
 查询企业可用商户信息
 
-| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（快照） | 说明 |
+| 协议字段 | Go 字段 | Go 类型 | 位置 | 必填（数值及布尔字段按接口文档） | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `account_id` | `AccountId` | `*string` | query | 否 | 共同账户ID |
 | `agreement_no` | `AgreementNo` | `*string` | query | 否 | 授权签约协议号 |
@@ -47,5 +47,5 @@
 | `pid` | `Pid` | `*string` | query | 否 | 商户ID |
 | `shop_id` | `ShopId` | `*string` | query | 否 | 门店ID |
 | `expense_type` | `ExpenseType` | `*string` | query | 否 | 费用类型 MEAL - 工作餐 |
-| `page_num` | `PageNum` | `*string` | query | 否 | 页码 |
-| `page_size` | `PageSize` | `*string` | query | 否 | 每页行数（最大100） |
+| `page_num` | `PageNum` | `*int64` | query | 是 | 页码 |
+| `page_size` | `PageSize` | `*int64` | query | 是 | 每页行数（最大100） |

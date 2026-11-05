@@ -18,7 +18,7 @@ type InvoiceExpenseSceneMerchantQueryRequest struct {
 	// ExpenseType 是费用类型	MEAL - 工作餐
 	ExpenseType *string `json:"expense_type,omitempty" query:"expense_type,omitempty"`
 	// PageNum 是页码
-	PageNum *string `json:"page_num,omitempty" query:"page_num,omitempty"`
+	PageNum *int64 `json:"page_num,omitempty" query:"page_num,required"`
 	// PageSize 是每页行数（最大100）
-	PageSize *string `json:"page_size,omitempty" query:"page_size,omitempty"`
+	PageSize *int64 `json:"page_size,omitempty" query:"page_size,required"`
 }
