@@ -1,0 +1,4 @@
+package logisticscompany
+
+// LogisticsLogisticsCompanyInstantDeliveryQueryRequest is the request model for alipay.commerce.logistics.logisticscompany.instantdelivery.query.
+type LogisticsLogisticsCompanyInstantDeliveryQueryRequest struct{}

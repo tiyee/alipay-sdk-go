@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Build output directory
+bin/
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -31,3 +34,31 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local AI assistant configuration
+AGENTS.md
+AGENTS.override.md
+CLAUDE.md
+GEMINI.md
+.agents/
+.agent/
+.codex/
+.claude/
+.cursor/
+.gemini/
+.opencode/
+.windsurf/
+.continue/
+.kiro/
+.roo/
+.clinerules/
+.github/agents/
+.github/instructions/
+.github/prompts/
+.github/copilot-instructions.md
+.cursorrules
+.windsurfrules
+.aider*
+
+# ZCode local assistant configuration
+.zcode/
