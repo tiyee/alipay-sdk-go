@@ -25,7 +25,7 @@ const (
 	ErrorKindProtocol ErrorKind = "protocol"
 	// ErrorKindSignature 表示请求签名失败或响应缺签、验签失败。
 	ErrorKindSignature ErrorKind = "signature"
-	// ErrorKindCertificate 表示证书装载、匹配或选择失败。
+	// ErrorKindCertificate 表示证书装载、有效期、匹配或选择校验失败。
 	ErrorKindCertificate ErrorKind = "certificate"
 	// ErrorKindAPI 表示支付宝网关返回的业务错误（含未验签的错误响应）。
 	ErrorKindAPI ErrorKind = "api"
@@ -175,7 +175,8 @@ func (e *SignatureError) Unwrap() error { return e.Err }
 // Kind 实现 ErrorKinder。
 func (e *SignatureError) Kind() ErrorKind { return ErrorKindSignature }
 
-// CertificateError 表示证书装载、匹配或选择失败。
+// CertificateError 表示证书装载、有效期、匹配或选择校验失败。
+// 有效期错误的原因链包含 *auth.CertValidityError，可定位需更新的配置项。
 type CertificateError struct {
 	// Reason 说明失败原因，不包含证书内容。
 	Reason string

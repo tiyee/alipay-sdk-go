@@ -9,6 +9,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"math"
+	"math/big"
 
 	"github.com/tiyee/alipay-sdk-go/utils"
 )
@@ -23,12 +25,16 @@ type RSA2 struct {
 	publicKey *rsa.PublicKey
 }
 
-// NewRSA2FromKey 基于已解析的 RSA 公钥构建验签器。
+// NewRSA2FromKey 校验 RSA 公钥的模数及指数后构建验签器。
+// 公钥必须不少于 2048 位。
 func NewRSA2FromKey(publicKey *rsa.PublicKey) (*RSA2, error) {
-	if publicKey == nil || publicKey.N == nil {
-		return nil, fmt.Errorf("alipay/verifiers: nil rsa public key")
+	if publicKey == nil || publicKey.N == nil || publicKey.N.Sign() <= 0 || publicKey.N.Bit(0) == 0 || publicKey.N.BitLen() < 2048 {
+		return nil, fmt.Errorf("alipay/verifiers: rsa modulus must be positive, odd and at least 2048 bits")
 	}
-	return &RSA2{publicKey: publicKey}, nil
+	if publicKey.E < 3 || publicKey.E%2 == 0 || publicKey.E > math.MaxInt32 {
+		return nil, fmt.Errorf("alipay/verifiers: invalid rsa public exponent")
+	}
+	return &RSA2{publicKey: &rsa.PublicKey{N: new(big.Int).Set(publicKey.N), E: publicKey.E}}, nil
 }
 
 // NewRSA2FromPEM 解析 X.509 SubjectPublicKeyInfo（"PUBLIC KEY"）PEM
@@ -42,8 +48,8 @@ func NewRSA2FromPEM(alipayPublicKeyPEM string) (*RSA2, error) {
 }
 
 // NewRSA2FromCertificate 从单张 X.509 证书 PEM 中提取公钥构建验签器，
-// 用于证书模式下的异步通知验签：官方对通知不按证书标识选择证书，
-// 直接使用本地配置的支付宝证书公钥（rsaCertCheckV1 行为）。
+// 对应官方 rsaCertCheckV1 的公钥提取行为。此底层函数不校验证书链或有效期；
+// SDK 证书模式应使用 auth.NewCertificateCredentials，统一校验材料及运行期有效期。
 func NewRSA2FromCertificate(alipayCertPEM string) (*RSA2, error) {
 	cert, err := utils.ParseCertificatePEM(alipayCertPEM)
 	if err != nil {

@@ -1,9 +1,7 @@
 package authentication_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	authentication "github.com/tiyee/alipay-sdk-go/services/zoloz/authentication"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -203,10 +202,8 @@ func ExampleService_CustomerFaceManageCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *authentication.CustomerFaceManageCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[authentication.CustomerFaceManageCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -214,7 +211,7 @@ func ExampleService_CustomerFaceManageCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.CustomerFaceManageCreate(ctx, *request, callOptions...)
+	response, err := svc.CustomerFaceManageCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -307,10 +304,8 @@ func ExampleService_CustomerFaceManageDelete() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *authentication.CustomerFaceManageDeleteRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[authentication.CustomerFaceManageDeleteRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -318,7 +313,7 @@ func ExampleService_CustomerFaceManageDelete() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.CustomerFaceManageDelete(ctx, *request, callOptions...)
+	response, err := svc.CustomerFaceManageDelete(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -411,10 +406,8 @@ func ExampleService_CustomerSmilePayInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *authentication.CustomerSmilePayInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[authentication.CustomerSmilePayInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -422,7 +415,7 @@ func ExampleService_CustomerSmilePayInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.CustomerSmilePayInitialize(ctx, *request, callOptions...)
+	response, err := svc.CustomerSmilePayInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -515,10 +508,8 @@ func ExampleService_SmilePayInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *authentication.SmilePayInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[authentication.SmilePayInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -526,7 +517,7 @@ func ExampleService_SmilePayInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SmilePayInitialize(ctx, *request, callOptions...)
+	response, err := svc.SmilePayInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/tiyee/alipay-sdk-go/internal/protocol"
-	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
 // CertificateConfig 是本地证书模式的凭证配置。全部材料为解析后的
@@ -37,6 +36,7 @@ type CertificateCredentials struct {
 	signer   Signer
 	verifier Verifier
 	identity CertificateIdentity
+	validity certificateValidity
 }
 
 // NewCertificateCredentials 构造证书凭证。装配时执行以下校验，
@@ -49,7 +49,9 @@ type CertificateCredentials struct {
 //   - 根证书集合中至少存在一张 RSA 签名算法证书，否则无法计算
 //     alipay_root_cert_sn（官方规则仅统计 RSA 家族签名算法的证书）。
 //
-// 构造不下载证书、不访问网络；更新证书时用新配置重建凭证与 Client。
+// 每次签名、验签及 Validate 均检查全部配置证书的有效期。
+// 任一证书失效返回 *CertValidityError；调用方更新材料后重建凭证与使用它的实例。
+// 构造不访问网络。
 func NewCertificateCredentials(config CertificateConfig) (*CertificateCredentials, error) {
 	if isNilInterface(config.AppSigner) {
 		return nil, nilCredentialsErr("app signer")
@@ -65,18 +67,23 @@ func NewCertificateCredentials(config CertificateConfig) (*CertificateCredential
 		return nil, nilCredentialsErr("alipay root certificates")
 	}
 	now := time.Now()
+	var validity certificateValidity
+	validity.add("app_certificate", config.AppCertificate)
 
-	if _, ok := config.AppCertificate.PublicKey.(*rsa.PublicKey); !ok {
-		return nil, fmt.Errorf("alipay/auth: app certificate public key is not RSA")
+	signer, err := NewRSA2Signer(appSigner)
+	if err != nil {
+		return nil, fmt.Errorf("alipay/auth: build app signer: %w", err)
+	}
+	certPublicKey, ok := config.AppCertificate.PublicKey.(*rsa.PublicKey)
+	if !ok || certPublicKey == nil || certPublicKey.N == nil {
+		return nil, fmt.Errorf("alipay/auth: app certificate public key is missing or not RSA")
 	}
 	roots := x509.NewCertPool()
-	for _, root := range config.RootCertificates {
+	for i, root := range config.RootCertificates {
 		if root == nil {
 			return nil, nilCredentialsErr("alipay root certificate")
 		}
-		if err := utils.CheckCertValidity(root, now); err != nil {
-			return nil, fmt.Errorf("alipay/auth: check alipay root certificate validity: %w", err)
-		}
+		validity.add(fmt.Sprintf("root_certificates[%d]", i), root)
 		if !root.IsCA || !root.BasicConstraintsValid || (root.KeyUsage != 0 && root.KeyUsage&x509.KeyUsageCertSign == 0) {
 			return nil, fmt.Errorf("alipay/auth: alipay root certificate is not a CA certificate")
 		}
@@ -89,18 +96,13 @@ func NewCertificateCredentials(config CertificateConfig) (*CertificateCredential
 		}
 		roots.AddCert(root)
 	}
-	if err := utils.CheckCertValidity(config.AppCertificate, now); err != nil {
-		return nil, fmt.Errorf("alipay/auth: check app certificate validity: %w", err)
-	}
 	var leaves []*x509.Certificate
 	intermediates := x509.NewCertPool()
-	for _, cert := range config.AlipayCertificates {
+	for i, cert := range config.AlipayCertificates {
 		if cert == nil {
 			return nil, nilCredentialsErr("alipay certificate")
 		}
-		if err := utils.CheckCertValidity(cert, now); err != nil {
-			return nil, fmt.Errorf("alipay/auth: check alipay certificate validity: %w", err)
-		}
+		validity.add(fmt.Sprintf("alipay_certificates[%d]", i), cert)
 		if cert.IsCA {
 			intermediates.AddCert(cert)
 			continue
@@ -113,6 +115,9 @@ func NewCertificateCredentials(config CertificateConfig) (*CertificateCredential
 		}
 		leaves = append(leaves, cert)
 	}
+	if err := validity.check(now); err != nil {
+		return nil, err
+	}
 	for _, leaf := range leaves {
 		_, err := leaf.Verify(x509.VerifyOptions{
 			Roots: roots, Intermediates: intermediates, CurrentTime: now,
@@ -124,11 +129,10 @@ func NewCertificateCredentials(config CertificateConfig) (*CertificateCredential
 	}
 
 	privateKey, ok := appSigner.Public().(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("alipay/auth: app signer public key is %T, want RSA", appSigner.Public())
+	if !ok || privateKey == nil || privateKey.N == nil {
+		return nil, fmt.Errorf("alipay/auth: app signer public key is missing or not RSA")
 	}
-	certPublicKey, ok := config.AppCertificate.PublicKey.(*rsa.PublicKey)
-	if !ok || certPublicKey.N.Cmp(privateKey.N) != 0 || certPublicKey.E != privateKey.E {
+	if certPublicKey.N.Cmp(privateKey.N) != 0 || certPublicKey.E != privateKey.E {
 		return nil, fmt.Errorf("alipay/auth: app signer does not match the app certificate public key")
 	}
 
@@ -147,14 +151,10 @@ func NewCertificateCredentials(config CertificateConfig) (*CertificateCredential
 	if err != nil {
 		return nil, err
 	}
-	signer, err := NewRSA2Signer(appSigner)
-	if err != nil {
-		return nil, fmt.Errorf("alipay/auth: build app signer: %w", err)
-	}
-
 	return &CertificateCredentials{
-		signer:   signer,
-		verifier: certificateVerifier{set: set},
+		signer:   certificateSigner{Signer: signer, validity: validity},
+		verifier: certificateVerifier{set: set, validity: validity},
+		validity: validity,
 		identity: CertificateIdentity{
 			AppCertificateSN:  appCertSN,
 			RootCertificateSN: rootCertSN,
@@ -176,7 +176,7 @@ func (c *CertificateCredentials) CertificateIdentity() CertificateIdentity {
 	return c.identity
 }
 
-// Validate 实现 Credentials：确认组合对象与身份标识仍然完整。
+// Validate 实现 Credentials，检查组合对象、身份标识及全部配置证书的当前有效期。
 func (c *CertificateCredentials) Validate() error {
 	if c.signer == nil || isNilInterface(c.signer) {
 		return nilCredentialsErr("app signer")
@@ -190,18 +190,22 @@ func (c *CertificateCredentials) Validate() error {
 	if c.signer.Algorithm() != SignatureAlgorithmRSA2 {
 		return fmt.Errorf("alipay/auth: unsupported signer algorithm %q", c.signer.Algorithm())
 	}
-	return nil
+	return c.validity.check(time.Now())
 }
 
 // certificateVerifier 将可信证书索引适配为 Verifier 契约。
 type certificateVerifier struct {
-	set *trustedCertificateSet
+	set      *trustedCertificateSet
+	validity certificateValidity
 }
 
 // Verify 实现 Verifier：算法必须与 RSA2 一致；KeyID 来自协议提取的
 // 可信材料标识（V3 REST 为响应头 alipay-sn）；协议未提供标识时
 // 由索引按本地可信材料语义处理。
 func (v certificateVerifier) Verify(ctx context.Context, input VerificationInput) error {
+	if err := v.validity.check(time.Now()); err != nil {
+		return err
+	}
 	if input.Signature.Algorithm != SignatureAlgorithmRSA2 {
 		return fmt.Errorf("alipay/auth: unsupported signature algorithm %q; only %q is supported",
 			input.Signature.Algorithm, SignatureAlgorithmRSA2)

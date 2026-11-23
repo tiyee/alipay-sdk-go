@@ -1,9 +1,7 @@
 package order_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -11,6 +9,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/services/trade/order"
 	"github.com/tiyee/alipay-sdk-go/utils"
 )
@@ -97,10 +96,8 @@ func ExampleService_OrderPay() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *order.OrderPayRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[order.OrderPayRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -108,7 +105,7 @@ func ExampleService_OrderPay() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.OrderPay(ctx, *request, callOptions...)
+	response, err := svc.OrderPay(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -201,10 +198,8 @@ func ExampleService_OrderSettle() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *order.OrderSettleRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[order.OrderSettleRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -212,7 +207,7 @@ func ExampleService_OrderSettle() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.OrderSettle(ctx, *request, callOptions...)
+	response, err := svc.OrderSettle(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -305,10 +300,8 @@ func ExampleService_OrderSettleQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *order.OrderSettleQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[order.OrderSettleQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -316,7 +309,7 @@ func ExampleService_OrderSettleQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.OrderSettleQuery(ctx, *request, callOptions...)
+	response, err := svc.OrderSettleQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

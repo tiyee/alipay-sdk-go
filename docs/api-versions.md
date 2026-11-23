@@ -1,89 +1,99 @@
-# 接口文档、调用方式与协议选型
+# 接口版本说明
 
-核验日期：2026-11-05。本文决定接口的目标协议；当前代码是否实现、离线或沙箱是否验证，分别见[覆盖记录](api-coverage.md)。
+核验日期：2026-11-05。本文说明 SDK 的协议支持范围与官方契约清点结论；当前代码是否实现、离线或沙箱是否验证，分别见[覆盖记录](api-coverage.md)。
 
-## 当前字段契约
+## 1. 支持范围：仅 V3
+
+**本 SDK 仅支持支付宝 V3**：服务端接口使用 V3 REST（`/v3/...` 路由）；页面/唤端（page.pay、wap.pay、app.pay）按官方 V3 文档与产物构建规范提供本地签名产物；普通支付异步通知按通知自身契约处理。各调用方式均按其明确契约执行。
+
+- 页面/唤端产物按官方 V3 文档使用 `gateway.do`、`method`、`version=1.0`、`biz_content` 等签名字段；这些字段仅用于本地签名产物构建。
+- 区分官方文档版本、SDK 支持方式与实际报文。V3 文档和 V3 SDK 同时包含 REST API、页面跳转与 App 订单串等场景，不能将 V3 支持范围等同于自动生成的 REST 清单。
+- REST API 按官方 HTTP 方法与 `/v3/...` 路由调用，不能将方法名的点号机械替换成斜杠，虚构 REST 路由。
+- Go 标准库 `encoding/json/v2` 的"v2"与支付宝 API 协议版本无关。
+- 未确认 V3 契约的接口不予实现；未实现的能力明确报为未支持。
+
+2026-11-23 收紧认证失败处理。V3 带签名响应要求完整的时间戳、随机串及证书模式 SN，普通支付通知要求显式 `sign_type=RSA2`。内置证书凭证在每次签名和验签时检查全部配置材料的有效期，错误类型与处理方式见[协议说明](protocol-notes.md)。
+
+## 2. 内置接口契约清点结论
+
+2026-11-05 依照官方 OpenAPI 快照核对并补齐 `docs/apis.md` 中的 REST 操作。快照共列 746 个 REST Operation，其中 678 个属于 `alipay.*`；其余 68 个使用 `ant.*`、`zhima.*`、`zoloz.*` 等其他命名空间，现均已提供 Service 方法及请求、响应模型。
+
+| 领域 | 包布局 | 数量 |
+| --- | --- | --- |
+| `alipay.boss.*` | `services/boss/<业务子域>/` | 8 |
+| `alipay.commerce.*` | `services/commerce/<业务子域>/` | 55 |
+| `alipay.data.*` | `services/data/<业务子域>/` | 18 |
+| `alipay.ebpp.*` | `services/ebpp/<业务子域>/` | 77 |
+| `alipay.eco.*` | `services/eco/<业务子域>/` | 32 |
+| `alipay.fund.*` | `services/fund/<业务子域>/` | 42 |
+| `alipay.iservice.*` | `services/iservice/ccm/<业务子域>/` | 45 |
+| `alipay.marketing.*` | `services/marketing/<业务子域>/` | 64 |
+| `alipay.merchant.*` | `services/merchant/<业务子域>/` | 18 |
+| `alipay.mobile.*` | `services/mobile/<业务子域>/` | 14 |
+| `alipay.offline.*` | `services/offline/<业务子域>/` | 8 |
+| `alipay.open.*` | `services/open/<业务子域>/` | 241 |
+| `alipay.pcredit.*` | `services/pcredit/` | 6 |
+| `alipay.security.*` | `services/security/` | 3 |
+| `alipay.social.*` | `services/social/` | 1 |
+| `alipay.system.*` | `services/system/` | 1 |
+| `alipay.trade.*` | `services/trade/` 与交易业务子包 | 27 |
+| `alipay.user.*` | `services/user/<业务子域>/` | 18 |
+| **合计 `alipay.*`** | | **678** |
+
+原有 40 项的接口名、HTTP 方法和路由均在快照中找到。其余 638 项依照快照生成 Service 方法和具名模型。开放平台、发票、营销、企业码及客服等密集业务按接口前缀拆入子包，例如 `alipay.open.mini.inner.*` 位于 `services/open/mini/inner/`；请求、响应和共享模型文件与接口实现放在同一子包，不集中放在领域根目录。生成接口尚未逐项人工核验业务条件、证书要求和产品权限；这不代表商户已开通相应产品或接口可直接用于生产。完整的包路径映射见[业务包目录](service-layout.md)。逐接口的方法、路径、实现与验证状态见[接口覆盖记录](api-coverage.md)和[接口目录](apis.md)。
+
+支付与创建交易的 `royalty_info.royalty_detail_infos[].amount_percentage` 按字符串编码，退款分账明细的同名字段按整数编码。订单咨询响应的顶层 `wait_repayment_amount` 是字符串，待还订单明细内的同名字段是整数。参见[支付](https://opendocs.alipay.com/open-v3/08c7f9f8_alipay.trade.pay)、[创建交易](https://opendocs.alipay.com/open-v3/bf4eae5e_alipay.trade.create)和[订单咨询](https://opendocs.alipay.com/open-v3/11cb1f6e_alipay.trade.advance.consult)。
+
+清点边界：
+
+- 页面/唤端产物（page.pay / wap.pay / app.pay）与异步通知不在 openapi.yaml 覆盖范围（快照中无对应 path）。其依据是官方[页面构建规范](https://opendocs.alipay.com/common/0i2kxr.md)、[唤端说明](https://opendocs.alipay.com/common/0i2jez.md)、各接口 V3 文档与[通知验签文档](https://opendocs.alipay.com/common/02mse7.md)，无法以 yaml 核对，正确性依赖上述官方规范。
+- openapi.yaml 快照有版本日期（2026-09-23，commit `02177d34fce069f6c20d83c13f963150bb45467b`）；官方更新契约后需以新版快照复核本清单。
+
+### 参数位置、证书与交易通知
+
+按 2026-09-23 版 OpenAPI 快照区分路由、query 和请求体。POST 和 DELETE 也可只传 query；同时声明 query 和 JSON 的接口将两者分别写入 URI 和正文。已逐项核对 746 个操作的 HTTP 方法、路由和请求参数模式。55 个声明 query 或省略请求体的非 GET 接口另有离线 HTTP 测试，逐项比对 URI、实际发送的正文字节和 RSA2 签名。详见[离线契约测试](../examples/generatedapi/query_contract_test.go)。
+
+`alipay.trade.pay`、`alipay.trade.create`、`alipay.trade.precreate`、`alipay.trade.close` 和 `alipay.trade.refund.apply` 均支持在 JSON 请求体中设置 `notify_url`。`alipay.trade.query` 的结算、优惠券、单品优惠与医保字段由相应查询选项控制。`alipay.fund.trans.uni.transfer` 在发送前强制校验证书模式，依据[资金支出接口说明](https://opendocs.alipay.com/common/02kg66.md)。
 
 2026-11-06 复核 V3 字段契约后，交易模型共用 `settle_info.settle_period_time`，预创建在顶层发送 `payment_type`。资金退回按接口文档校验 `biz_scene`，历史余额查询仅使用日期或月份。31 个操作的数值和布尔 query 参数已使用对应 Go 类型，必填参数在请求发送前检查。交易、退款、转账和账单模型已补齐快照字段，两个废弃令牌响应字段的取舍见[逐接口核查记录](checked.md)。
 
 App 支付并签约使用 `biz_content.agreement_sign_params`。页面签名产物按 PC/WAP 参数表分别处理二维码宽度和退出地址。[App 签约](https://opendocs.alipay.com/open-v3/0jf33m) · [电脑网站支付](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay) · [手机网站支付](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay)
 
-## 1. 选型规则
+### 2.1 名为 query 实为 POST + JSON body 的接口
 
-**同一能力有官方 V3 接口时使用 V3；确认只有 V2 的接口才使用 V2。** 此规则同时适用于内置 Service 与用户自定义 API。
+以下 4 个接口名称含 query/batchquery，但官方 V3 契约为 **POST + JSON 请求体**（已逐条与 openapi.yaml 核对，本 SDK 与官方一致）。后续维护不得按接口名想当然改为 GET + query：
 
-- 本文的 V2 指传统 AOP 网关协议，通常通过 `gateway.do`、`method`、`biz_content` 调用；其公共参数 `version=1.0` 不代表它是 V1 协议。
-- 区分官方文档版本、SDK 支持方式与实际报文。V3 文档和 V3 SDK 同时包含 REST API、页面跳转与 App 订单串等场景，不能将 V3 支持范围等同于自动生成的 REST 清单。
-- REST API 按官方 HTTP 方法与 `/v3/...` 路由调用；页面/唤端按该接口的 V3 文档与 SDK 示例构建签名产物。不能将方法名的点号机械替换成斜杠，虚构 REST 路由。
-- Go 标准库 `encoding/json/v2` 的“v2”与支付宝 API 协议版本无关。
-- 协议在 Operation 定义时显式固定。V3 调用失败、权限不足、超时或验签失败时，不自动回退到 V2，尤其不能跨协议重试支付、退款和转账。
-- 文档暂不可读、SDK 未封装或目录中未检索到，都不能独立证明接口只有 V2。证据不足时标记“待核验”，补充官方资料后再实现。
+| 接口 | 实际方法与路径 |
+| --- | --- |
+| `alipay.trade.fastpay.refund.query` | POST `/v3/alipay/trade/fastpay/refund/query` |
+| `alipay.trade.settle.receivables.query` | POST `/v3/alipay/trade/settle/receivables/query` |
+| `alipay.trade.batch.settle.query` | POST `/v3/alipay/trade/batch/settle/query` |
+| `alipay.trade.royalty.relation.batchquery` | POST `/v3/alipay/trade/royalty/relation/batchquery` |
 
-## 2. 核验来源与范围
+### 2.2 快照外接口补录
 
-本轮覆盖本项目已实现或明确规划的 16 个常用接口：**13 个 V3 REST API，另有 3 个支付页面/唤端接口须按各自官方 V3 文档及通用执行入口接入**。后者不归类为“没有 V3 文档”或“只有 V2”。这是项目选型清单，不是支付宝全部接口的穷举。
+2026-11-05 在[接口目录](apis.md#快照外接口35-项v3-契约未确认)补录本次官方资料核查发现的 35 个接口，不增加 SDK 实现，也不计入上述 746 个 V3 REST 操作或 3 个已核验的页面/唤端接口：
 
-主要依据为支付宝官方仓库的固定版本：
+- 6 个 OpenID 转换接口：已查阅官方接口全文，文档使用 `gateway.do`、`method`、`biz_content` 等传统网关调用方式；尚未确认 V3 契约，当前 SDK 不提供相应服务端调用。
+- 29 个官方[资金操作类敏感接口列表](https://opendocs.alipay.com/common/02kkuw.md)列出的快照外接口：包含 16 个 `alipay.*`、10 个 `koubei.*` 和 3 个 `mybank.*` 接口。名称及原始文档链接有清单依据，但未取得可核验的接口正文；现行可用性、接口版本与 V3 契约均待确认。
 
-- [官方 V3 OpenAPI 描述](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/api/openapi.yaml)：`info.version=2026-09-23`，本次按 `operationId` 核对，包含 746 个操作。
-- [同一版本的官方 V3 API 目录](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/README.md)：用于交叉确认方法与路由。
-- [官方 V3 SDK 的 GenericExecuteApi](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/src/main/java/com/alipay/v3/util/GenericExecuteApi.java)：提供 `pageExecute` 和 `sdkExecute`，不在自动生成的 REST API 列表中。
-- 下表的官方 V3 页面正文及其示例：用于确认接口字段、调用方式、响应产物与签名参数，而非只根据文档 URL 判断协议。
+这些补录记录用于跟踪目录缺项，不能据此推导 REST 路由、使用通用执行入口绕过协议限制，或宣称 SDK 已支持。后续取得明确官方 V3 契约后再更新分类、实现与覆盖记录。
 
-上述 SDK 提交时间为 2026-11-04，commit 为 `02177d34fce069f6c20d83c13f963150bb45467b`。未命中 REST 目录不代表 V3 SDK 不支持；必须同时检查通用执行入口与具体文档。
+## 3. 核验来源
 
-## 3. 有官方 V3 文档的页面与唤端接口
+- 支付宝的[SDK 与工具](https://opendocs.alipay.com/open-v3/065bsc)提供 OpenAPI 描述文件。本次清点采用 `info.version=2026-09-23`，746 个操作的接口名、方法、路由和文档链接见[接口目录](apis.md)。
+- `alipay.fund.auth.order.app.freeze` 的[V3 接口文档](https://opendocs.alipay.com/open-v3/46bf87fe_alipay.fund.auth.order.app.freeze)演示通过 `sdkExecute` 生成 App 订单串。目录中的 POST 路由来自 OpenAPI 快照，REST 调用方式仍待核实。
+- 各接口官方 V3 文档正文与[页面跳转](https://opendocs.alipay.com/common/0i2kxr.md)、[唤端](https://opendocs.alipay.com/common/0i2jez.md)、[通知验签](https://opendocs.alipay.com/common/02mse7.md)说明。
 
-| 接口 | 用途 | 官方接入方式 | 官方 V3 文档 |
-| --- | --- | --- | --- |
-| `alipay.trade.page.pay` | 电脑网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [统一收单下单并支付页面接口](https://opendocs.alipay.com/open-v3/2423fad5_alipay.trade.page.pay) |
-| `alipay.trade.wap.pay` | 手机网站支付 | V3 SDK `GenericExecuteApi.pageExecute`；POST 生成 HTML Form，GET 生成支付 URL | [手机网站支付接口](https://opendocs.alipay.com/open-v3/1a957be0_alipay.trade.wap.pay) |
-| `alipay.trade.app.pay` | App 支付及支付并签约场景 | 按 V3 SDK `GenericExecuteApi.sdkExecute` 的订单字符串构建方式接入 | [App 支付](https://opendocs.alipay.com/open-v3/429e4d75_alipay.trade.app.pay)、[商家扣款场景](https://opendocs.alipay.com/open-v3/0jf33m) |
+快照提交 `02177d34fce069f6c20d83c13f963150bb45467b`（2026-11-04 提交时间）。未命中 REST 目录不代表官方不支持该能力；新增接口时必须同时检查通用执行入口与具体文档。
 
-`page.pay` 文档更新时间为 2026-09-13，`wap.pay` 为 2026-08-17。本次已读取其 V3 页面正文：二者都明确为页面跳转接口，Java 示例使用 `com.alipay.v3.util.GenericExecuteApi.pageExecute`，响应为 `pageRedirectionData`。POST 返回可在浏览器渲染的表单，GET 返回供打开或重定向的 URL。`app.pay` 的 V3 文档更新于 2026-08-21，明确为签名数据准备接口，通过 `sdkExecute` 生成 `orderStr`。
+## 4. 对架构与代码的影响
 
-同日核验的 [0jf33m](https://opendocs.alipay.com/open-v3/0jf33m) 是 `alipay.trade.app.pay` 在商家扣款产品中的 V3 场景文档，更新时间同为 2026-08-21。正文明确用于 App 支付并签约，Java 示例使用 V3 SDK `GenericExecuteApi.sdkExecute`；新增的是同一接口的场景依据，因此接口总数仍为 16，不重复计数。
+1. `core.Client` 是唯一 REST 客户端，执行 V3 REST 协议。
+2. Operation 通过 `core.NewJSONOperation` / `core.NewOperation` 构造，显式声明官方方法名、HTTP 方法、相对路由与参数模式（JSON body / query / multipart）；认证要求经 `AuthRequirement` 在执行前校验。
+3. 页面/唤端产物经 `core.NewArtifactBuilder` 与 `trade.PaymentProducts` 按官方产物契约构建，使用独立的产物网关配置（`gateway.do`）。异步通知按自身契约在 `core/notify` 处理，与 REST 验签边界独立。
+4. 自定义接口同样只能声明 V3 规格；`examples/customapi` 演示外部包经 `NewJSONOperation` / `NewOperation` 接入 V3 GET/POST 的方式。
 
-该场景包含 `agreement_sign_params` 以及嵌套的 `access_params`、`period_rule_params` 等签约数据。实现时采用独立具名 struct、具名枚举与明确的条件校验，不照搬普通 App 支付场景的必填关系，也不以动态字典替代模型。App 支付并签约的实现与离线验证见上文的字段核查记录。
+## 5. 持续维护
 
-这些 V3 文档的页面产物仍展示 `gateway.do`、`method`、`version=1.0`、`biz_content` 和签名参数，应按文档实现；这描述实际签名格式，不能据此宣称没有 V3 文档或 V3 SDK 支持。SDK 应提供独立的页面/订单串构建入口，而非强行套用服务端 REST JSON 执行器。
-
-付款后的交易查询、退款和退款查询采用第 4 节的 V3 REST。普通支付异步通知按自身回调契约验签，不能根据文档目录或交易 API 版本自动改变格式。
-
-### 3.1 “仅 V2”状态的判定
-
-本轮不再将上述三个支付接口列入“仅 V2”清单。只有取得明确的官方证据、确认没有相应 V3 文档和支持路径后，才将其他接口记录为仅 V2；不依据 REST 清单缺失作此判定。
-
-## 4. 已有 V3、必须选用 V3 的接口
-
-| 接口 | HTTP 方法 | V3 路由 | 官方 API 文档 |
-| --- | --- | --- | --- |
-| `alipay.trade.query` | POST | `/v3/alipay/trade/query` | [Trade.query](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#query) |
-| `alipay.trade.precreate` | POST | `/v3/alipay/trade/precreate` | [Trade.precreate](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#precreate) |
-| `alipay.trade.close` | POST | `/v3/alipay/trade/close` | [Trade.close](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#close) |
-| `alipay.trade.refund` | POST | `/v3/alipay/trade/refund` | [Trade.refund](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#refund) |
-| `alipay.trade.fastpay.refund.query` | POST | `/v3/alipay/trade/fastpay/refund/query` | [Refund.query](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeFastpayRefundApi.md#query) |
-| `alipay.trade.pay` | POST | `/v3/alipay/trade/pay` | [Trade.pay](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#pay) |
-| `alipay.trade.create` | POST | `/v3/alipay/trade/create` | [Trade.create](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#create) |
-| `alipay.trade.cancel` | POST | `/v3/alipay/trade/cancel` | [Trade.cancel](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayTradeApi.md#cancel) |
-| `alipay.data.dataservice.bill.downloadurl.query` | GET | `/v3/alipay/data/dataservice/bill/downloadurl/query` | [Bill.query](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayDataDataserviceBillDownloadurlApi.md#query) |
-| `alipay.system.oauth.token` | POST | `/v3/alipay/system/oauth/token` | [Oauth.token](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipaySystemOauthApi.md#token) |
-| `alipay.open.auth.token.app` | POST | `/v3/alipay/open/auth/token/app` | [AuthToken.app](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayOpenAuthTokenApi.md#app) |
-| `alipay.fund.trans.uni.transfer` | POST | `/v3/alipay/fund/trans/uni/transfer` | [Fund.transfer](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayFundTransUniApi.md#transfer) |
-| `alipay.fund.trans.common.query` | GET | `/v3/alipay/fund/trans/common/query` | [Fund.query](https://github.com/alipay/alipay-sdk-java-all/blob/02177d34fce069f6c20d83c13f963150bb45467b/v3/docs/AlipayFundTransCommonApi.md#query) |
-
-表中方法与路由直接来自同一份官方 OpenAPI，不从 V2 方法名推导。GET 使用 query 参数，POST 使用对应 V3 请求体；不得把 V2 的 `biz_content` 封装、`xxx_response` 节点或 `code=10000` 成功判定原样套入 V3。
-
-## 5. 对架构与计划的影响
-
-1. Client 共享配置、凭证装载、HTTP 生命周期、slog、类型化编解码与错误接口；V2/V3 分别实现请求签名、响应校验、证书定位和报文结构。
-2. Operation 新增明确的协议枚举及 V3 HTTP 方法、相对路由与参数位置。协议类型、HTTP 方法、参数模式均采用具名类型和带类型常量。
-3. 已存在的 5 个交易方法目前使用 V2；目标全部改为 V3。新增 V3 实现、契约测试与 Service 路由迁移完成前，覆盖表必须继续标为“当前 V2，V3 待迁移”，不能声称已支持 V3。
-4. 下一开发里程碑先实现 V3 协议与上述交易迁移，再继续证书完善和测试版本交付；取消“先发布完整 V2，再考虑 V3”的安排。
-5. 自定义账单地址查询示例改用 V3 GET。用户自定义接口也必须显式选择协议，不能使用通用扩展入口绕回已有 V3 接口的 V2 封装。
-
-## 6. 持续维护
-
-新增接口时先查官方 V3 OpenAPI 与接口正文，将方法名、协议、HTTP 方法、路由、证据链接和核验日期加入本清单或领域覆盖表。确认只有 V2 时记录具体依据；未确认时不默认归类为 V2。
-
-官方增加对应 V3 操作后，将该接口移出 V2 保留清单，安排独立迁移与模型、签名、错误语义回归；不在运行时悄悄切换，不因迁移失败跨协议重试。旧调用的兼容安排通过明确版本和迁移说明管理。
+新增接口时先查官方 V3 OpenAPI 与接口正文，将方法名、HTTP 方法、路由、参数位置、证据链接和核验日期加入[覆盖记录](api-coverage.md)。快照未命中的能力先核实通用执行入口与官方文档，未确认前不实现、不宣称支持。官方快照更新后，按新版快照复核内置清单并在本文件记录复核日期。

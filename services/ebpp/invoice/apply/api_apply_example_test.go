@@ -1,9 +1,7 @@
 package apply_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	apply "github.com/tiyee/alipay-sdk-go/services/ebpp/invoice/apply"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -197,10 +196,8 @@ func ExampleService_InvoiceApplyInvUpload() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *apply.InvoiceApplyInvUploadRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[apply.InvoiceApplyInvUploadRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -208,7 +205,7 @@ func ExampleService_InvoiceApplyInvUpload() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.InvoiceApplyInvUpload(ctx, *request, callOptions...)
+	response, err := svc.InvoiceApplyInvUpload(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -305,10 +302,8 @@ func ExampleService_InvoiceApplyStatusNotify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *apply.InvoiceApplyStatusNotifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[apply.InvoiceApplyStatusNotifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -316,7 +311,7 @@ func ExampleService_InvoiceApplyStatusNotify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.InvoiceApplyStatusNotify(ctx, *request, callOptions...)
+	response, err := svc.InvoiceApplyStatusNotify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

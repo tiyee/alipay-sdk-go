@@ -1,9 +1,7 @@
 package customs_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -11,6 +9,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/services/trade/customs"
 	"github.com/tiyee/alipay-sdk-go/utils"
 )
@@ -97,10 +96,8 @@ func ExampleService_CustomsDeclare() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customs.CustomsDeclareRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customs.CustomsDeclareRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -108,7 +105,7 @@ func ExampleService_CustomsDeclare() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.CustomsDeclare(ctx, *request, callOptions...)
+	response, err := svc.CustomsDeclare(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -201,10 +198,8 @@ func ExampleService_CustomsQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customs.CustomsQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customs.CustomsQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -212,7 +207,7 @@ func ExampleService_CustomsQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.CustomsQuery(ctx, *request, callOptions...)
+	response, err := svc.CustomsQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

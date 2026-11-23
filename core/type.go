@@ -1,11 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/tiyee/alipay-sdk-go/internal/jsoncodec"
@@ -187,11 +189,6 @@ func (p EncodedParams) validate(mode ParameterMode) error {
 			return &ValidationError{Field: "path_params", Reason: "path parameter names and values must not be empty"}
 		}
 	}
-	for key, values := range p.Form {
-		if len(values) > 1 {
-			return &ValidationError{Field: "params", Reason: fmt.Sprintf("form key %q has multiple values", key)}
-		}
-	}
 	switch p.Mode {
 	case ParameterModeJSONBody, ParameterModeJSONBodyWithQuery:
 		if len(p.SignBody) != 0 {
@@ -283,6 +280,9 @@ func jsonBodyEncoder[T any](mode ParameterMode) Encoder[T] {
 func JSONDecoder[T any]() Decoder[T] {
 	return DecoderFunc[T](func(payload json.RawMessage) (T, error) {
 		var value T
+		if reflect.TypeFor[T]().Kind() == reflect.Struct && bytes.Equal(bytes.TrimSpace(payload), []byte("null")) {
+			return value, fmt.Errorf("alipay: expected a response object, got null")
+		}
 		if err := jsoncodec.Unmarshal(payload, &value); err != nil {
 			var zero T
 			return zero, fmt.Errorf("alipay: decode response: %w", err)

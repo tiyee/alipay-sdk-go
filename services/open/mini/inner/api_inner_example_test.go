@@ -1,9 +1,7 @@
 package inner_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	inner "github.com/tiyee/alipay-sdk-go/services/open/mini/inner"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -195,10 +194,8 @@ func ExampleService_MiniInnerExperienceCancel() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *inner.MiniInnerExperienceCancelRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[inner.MiniInnerExperienceCancelRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -206,7 +203,7 @@ func ExampleService_MiniInnerExperienceCancel() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.MiniInnerExperienceCancel(ctx, *request, callOptions...)
+	response, err := svc.MiniInnerExperienceCancel(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -299,10 +296,8 @@ func ExampleService_MiniInnerMembersAdd() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *inner.MiniInnerMembersAddRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[inner.MiniInnerMembersAddRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -310,7 +305,7 @@ func ExampleService_MiniInnerMembersAdd() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.MiniInnerMembersAdd(ctx, *request, callOptions...)
+	response, err := svc.MiniInnerMembersAdd(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -403,10 +398,8 @@ func ExampleService_MiniInnerMembersDelete() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *inner.MiniInnerMembersDeleteRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[inner.MiniInnerMembersDeleteRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -414,7 +407,7 @@ func ExampleService_MiniInnerMembersDelete() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.MiniInnerMembersDelete(ctx, *request, callOptions...)
+	response, err := svc.MiniInnerMembersDelete(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

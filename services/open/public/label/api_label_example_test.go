@@ -1,9 +1,7 @@
 package label_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	label "github.com/tiyee/alipay-sdk-go/services/open/public/label"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -190,10 +189,8 @@ func ExampleService_PublicLabelCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *label.PublicLabelCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[label.PublicLabelCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -201,7 +198,7 @@ func ExampleService_PublicLabelCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PublicLabelCreate(ctx, *request, callOptions...)
+	response, err := svc.PublicLabelCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -294,10 +291,8 @@ func ExampleService_PublicLabelUserQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *label.PublicLabelUserQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[label.PublicLabelUserQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -305,7 +300,7 @@ func ExampleService_PublicLabelUserQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PublicLabelUserQuery(ctx, *request, callOptions...)
+	response, err := svc.PublicLabelUserQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

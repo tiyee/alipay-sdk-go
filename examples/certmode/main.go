@@ -92,13 +92,20 @@ func main() {
 		OutTradeNo: outTradeNo,
 	})
 	if err != nil {
-		// 证书模式下响应 alipay-sn 头与本地证书不匹配会返回
-		// *core.CertificateError：更新本地证书后重建实例，不自动重试。
+		// 运行期间证书过期或响应 alipay-sn 缺失、未知均明确报错。
+		// 有效期错误可沿错误链定位证书；更新材料后重建实例。
+		var validityErr *auth.CertValidityError
 		var certErr *core.CertificateError
 		var apiErr *core.APIError
 		switch {
+		case errors.As(err, &validityErr):
+			logger.LogAttrs(context.Background(), slog.LevelError,
+				"certificate is outside its validity period; update certificates and rebuild client",
+				slog.String("field", validityErr.Field),
+				slog.Time("not_before", validityErr.NotBefore),
+				slog.Time("not_after", validityErr.NotAfter))
 		case errors.As(err, &certErr):
-			logger.Error("certificate selection failed; update the local alipay certificate")
+			logger.Error("certificate check failed; check response SN and local certificates")
 		case errors.As(err, &apiErr):
 			// V3 错误响应只携带 code 与 message；未验签错误（Verified=false）
 			// 仅作诊断信息，不能作为可信业务结果。

@@ -96,7 +96,7 @@ func WithRequestTimeout(d time.Duration) core.ClientOption {
 	}
 }
 
-// WithMaxResponseBytes 设置响应体大小上限。
+// WithMaxResponseBytes 设置响应体大小上限，必须为正数且小于 math.MaxInt64。
 func WithMaxResponseBytes(n int64) core.ClientOption {
 	return func(s *core.Settings) error {
 		if n <= 0 {

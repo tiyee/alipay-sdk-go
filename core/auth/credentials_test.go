@@ -306,3 +306,41 @@ func TestCertificateCredentialsIntermediateChain(t *testing.T) {
 		t.Fatal("accepted untrusted intermediate")
 	}
 }
+
+func TestVerificationKeysAreSnapshots(t *testing.T) {
+	app := testutil.NewAppCryptoSigner(t)
+	suite := testutil.NewCertSuite(t)
+	pub := suite.AlipayCert.PublicKey.(*rsa.PublicKey)
+	direct, err := auth.NewPublicKeyCredentials(auth.PublicKeyConfig{AppSigner: app, AlipayPublicKey: pub})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := auth.NewCertificateCredentials(auth.CertificateConfig{
+		AppSigner: app, AppCertificate: suite.AppCert,
+		AlipayCertificates: []*x509.Certificate{suite.AlipayCert}, RootCertificates: []*x509.Certificate{suite.Root},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("offline verification key snapshot")
+	original, err := testutil.SignWithAlipayKey(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := testutil.SignWithAppKey(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub.N.Set(app.N)
+	for _, c := range []auth.Credentials{direct, cert} {
+		verify := func(signature string) error {
+			return c.Verifier().Verify(t.Context(), auth.VerificationInput{Payload: payload, Signature: auth.Signature{Algorithm: auth.SignatureAlgorithmRSA2, Value: signature}})
+		}
+		if err := verify(original); err != nil {
+			t.Fatalf("%v: original signature rejected: %v", c.Mode(), err)
+		}
+		if err := verify(replacement); err == nil {
+			t.Fatalf("%v: caller replaced verification key", c.Mode())
+		}
+	}
+}

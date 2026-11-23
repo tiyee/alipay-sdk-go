@@ -4,22 +4,19 @@
 package sandbox
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/compat"
-	"github.com/tiyee/alipay-sdk-go/internal/jsoncodec"
 	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
@@ -44,7 +41,7 @@ func Run[Service, Req, Resp any](t *testing.T, method string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := decodeRequest[Req](body)
+	req, err := requestfile.Decode[Req](body)
 	if err != nil {
 		// JSON 解码错误可能包含授权码等请求字段值，不直接输出。
 		t.Fatal("ALIPAY_SANDBOX_REQUEST must be a JSON object matching the Service request type; unknown fields are rejected")
@@ -93,53 +90,6 @@ func selected(getenv func(string) string, method string) (bool, error) {
 		return false, fmt.Errorf("ALIPAY_ENV must be sandbox when running sandbox examples")
 	}
 	return true, nil
-}
-
-func decodeRequest[T any](body []byte) (T, error) {
-	var req T
-	trimmed := bytes.TrimSpace(body)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return req, fmt.Errorf("request must be a JSON object")
-	}
-	// 混合请求的 query/path 字段标记为 json:"-"，避免它们被写进网关请求体。
-	// 沙箱输入文件可以按协议名提供这些字段，其余内容继续严格解码。
-	value := reflect.ValueOf(&req).Elem()
-	var fields map[string]json.RawMessage
-	if value.Kind() == reflect.Struct {
-		for i := 0; i < value.NumField(); i++ {
-			field := value.Type().Field(i)
-			if !field.IsExported() || field.Tag.Get("json") != "-" {
-				continue
-			}
-			name := field.Tag.Get("path")
-			if name == "" {
-				name, _, _ = strings.Cut(field.Tag.Get("query"), ",")
-			}
-			if name == "" || name == "-" {
-				continue
-			}
-			if fields == nil {
-				if err := jsoncodec.Unmarshal(trimmed, &fields); err != nil {
-					return req, err
-				}
-			}
-			if raw, ok := fields[name]; ok {
-				if err := jsoncodec.Unmarshal(raw, value.Field(i).Addr().Interface()); err != nil {
-					return req, err
-				}
-				delete(fields, name)
-			}
-		}
-	}
-	if fields != nil {
-		rest, err := json.Marshal(fields)
-		if err != nil {
-			return req, err
-		}
-		trimmed = rest
-	}
-	err := jsoncodec.UnmarshalStrict(trimmed, &req)
-	return req, err
 }
 
 func newClient(getenv func(string) string, httpClient *http.Client) (*core.Client, error) {

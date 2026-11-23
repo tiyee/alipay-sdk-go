@@ -41,7 +41,9 @@ type Client struct {
 
 // NewClient 以 Credentials 为第一个必选参数构建 V3 客户端。
 // 构造顺序：校验凭证并绑定认证快照 → 处理公共选项 → 校验配置。
-// 构造过程不进行网络 I/O；配置不完整时返回 *ConfigError。
+// 构造过程检查全部本地可验证的配置，不进行网络 I/O；
+// 配置缺失或非法时返回 nil 与 *ConfigError，不返回可运行的 Client。
+// 应用是否开通、凭证是否被平台接受及网络可达性由实际 API 调用确认。
 func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, error) {
 	snapshot, err := bindCredentials(credentials)
 	if err != nil {
@@ -56,6 +58,9 @@ func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, err
 			return nil, err
 		}
 	}
+	if settings.Mode != auth.ModeUnset {
+		return nil, &ConfigError{Field: "auth_mode", Reason: "auth mode is derived from credentials and cannot be set by options"}
+	}
 	settings.Mode = snapshot.mode
 	settings.applyDefaults()
 	if err := settings.validate(); err != nil {
@@ -64,6 +69,11 @@ func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, err
 	if err := settings.validateGateway(); err != nil {
 		return nil, err
 	}
+	if err := settings.validateHTTPClient(); err != nil {
+		return nil, err
+	}
+	settings.Gateway = compat.CloneURL(settings.Gateway)
+	settings.ArtifactGateway = compat.CloneURL(settings.ArtifactGateway)
 	return &Client{
 		settings: settings,
 		snapshot: snapshot,
@@ -176,15 +186,15 @@ func (c *Client) buildWireRequest(ctx context.Context, spec OperationSpec, param
 		return nil, &ValidationError{Field: "parameter_mode",
 			Reason: "v3 request parameter mode is not supported"}
 	}
-	uri, err := expandPathParams(spec.Path, params.PathParams)
+	path, err := expandPathParams(spec.Path, params.PathParams)
 	if err != nil {
 		return nil, err
 	}
-	if len(params.Form) != 0 {
-		// url.Values.Encode 按键排序输出，是签名与传输共用的唯一
-		// 序列化结果；不会在签名后重新编码。
-		uri += "?" + params.Form.Encode()
+	target, err := url.Parse(strings.TrimRight(c.settings.Gateway.String(), "/") + path)
+	if err != nil {
+		return nil, &ProtocolError{Op: "build", Reason: "invalid request path", Err: err}
 	}
+	target.RawQuery = params.Form.Encode()
 
 	nonce := c.nonce()
 	if nonce == "" {
@@ -196,9 +206,12 @@ func (c *Client) buildWireRequest(ctx context.Context, spec OperationSpec, param
 	if params.Mode == ParameterModeMultipart {
 		signBody = params.SignBody
 	}
-	content := protocol.BuildV3SignContent(authString, spec.HTTPMethod.String(), uri, string(signBody), settings.AppAuthToken)
+	content := protocol.BuildV3SignContent(authString, spec.HTTPMethod.String(), target.RequestURI(), string(signBody), settings.AppAuthToken)
 	signature, err := c.snapshot.signer.Sign(ctx, content)
 	if err != nil {
+		if _, ok := compat.AsType[*auth.CertValidityError](err); ok {
+			return nil, &CertificateError{Reason: "request certificate validity check failed", Err: err}
+		}
 		return nil, &SignatureError{Stage: "request", Reason: "sign request", Err: err}
 	}
 
@@ -216,7 +229,7 @@ func (c *Client) buildWireRequest(ctx context.Context, spec OperationSpec, param
 	headers.Set(protocol.V3HeaderRequestID, nonce)
 	return &v3WireRequest{
 		method:      spec.HTTPMethod.String(),
-		url:         c.settings.Gateway.String() + uri,
+		url:         target.String(),
 		body:        body,
 		contentType: contentType,
 		headers:     headers,
@@ -313,9 +326,29 @@ func (c *Client) handleResponse(ctx context.Context, result *APIResult, body []b
 	if len(body) == 0 {
 		return result, attrs, &ProtocolError{Op: "extract", Reason: "empty response body"}
 	}
+	if err := c.verifyResponse(ctx, result, body); err != nil {
+		return result, attrs, err
+	}
+	result.Node = append([]byte(nil), body...)
+	return result, attrs, nil
+}
+
+// verifyResponse 校验 V3 响应头与签名，成功与错误响应共用此入口。
+// 本 SDK 要求证书模式明确提供 alipay-sn。
+// V3 验签字段见 https://opendocs.alipay.com/open-v3/054d0z。
+func (c *Client) verifyResponse(ctx context.Context, result *APIResult, body []byte) error {
 	signature := result.Header.Get(protocol.V3HeaderSignature)
 	if signature == "" {
-		return result, attrs, &SignatureError{Stage: "response", Reason: "missing alipay-signature header"}
+		return &SignatureError{Stage: "response", Reason: "missing alipay-signature header"}
+	}
+	for _, name := range []string{protocol.V3HeaderTimestamp, protocol.V3HeaderNonce} {
+		if result.Header.Get(name) == "" {
+			return &ProtocolError{Op: "verify", Reason: "missing " + name + " header"}
+		}
+	}
+	keyID := result.Header.Get(protocol.V3HeaderCertSN)
+	if c.snapshot.mode == auth.ModeCertificate && keyID == "" {
+		return &CertificateError{Reason: "missing alipay-sn header", Err: &auth.CertSelectError{}}
 	}
 	input := auth.VerificationInput{
 		Payload: protocol.BuildV3VerifyContent(
@@ -328,43 +361,28 @@ func (c *Client) handleResponse(ctx context.Context, result *APIResult, body []b
 			Value:     signature,
 		},
 		// 公钥模式忽略 KeyID；证书模式按 alipay-sn 选择本地可信证书。
-		KeyID: result.Header.Get(protocol.V3HeaderCertSN),
+		KeyID: keyID,
 	}
 	if err := c.snapshot.verifier.Verify(ctx, input); err != nil {
 		if _, ok := compat.AsType[*auth.CertSelectError](err); ok {
-			return result, attrs, &CertificateError{Reason: "select trusted certificate by alipay-sn", Err: err}
+			return &CertificateError{Reason: "select trusted certificate by alipay-sn", Err: err}
 		}
-		return result, attrs, &SignatureError{Stage: "response", Reason: "verify signature", Err: err}
+		if _, ok := compat.AsType[*auth.CertValidityError](err); ok {
+			return &CertificateError{Reason: "response certificate validity check failed", Err: err}
+		}
+		return &SignatureError{Stage: "response", Reason: "verify signature", Err: err}
 	}
 	result.SignatureVerified = true
-	result.Node = append([]byte(nil), body...)
-	return result, attrs, nil
+	return nil
 }
 
 // handleErrorResponse 处理非 2xx 响应：带签名时先验签（验签失败即
 // 失败），再解析官方错误体；无签名或解析失败按未验签诊断处理。
 func (c *Client) handleErrorResponse(ctx context.Context, result *APIResult, body []byte, attrs []slog.Attr) (*APIResult, []slog.Attr, error) {
-	verified := false
-	if signature := result.Header.Get(protocol.V3HeaderSignature); signature != "" {
-		input := auth.VerificationInput{
-			Payload: protocol.BuildV3VerifyContent(
-				result.Header.Get(protocol.V3HeaderTimestamp),
-				result.Header.Get(protocol.V3HeaderNonce),
-				body,
-			),
-			Signature: auth.Signature{
-				Algorithm: auth.SignatureAlgorithmRSA2,
-				Value:     signature,
-			},
-			KeyID: result.Header.Get(protocol.V3HeaderCertSN),
+	if result.Header.Get(protocol.V3HeaderSignature) != "" {
+		if err := c.verifyResponse(ctx, result, body); err != nil {
+			return result, attrs, err
 		}
-		if err := c.snapshot.verifier.Verify(ctx, input); err != nil {
-			if _, ok := compat.AsType[*auth.CertSelectError](err); ok {
-				return result, attrs, &CertificateError{Reason: "select trusted certificate by alipay-sn", Err: err}
-			}
-			return result, attrs, &SignatureError{Stage: "response", Reason: "verify error response signature", Err: err}
-		}
-		verified = true
 	}
 	gw, err := protocol.ParseV3Error(body)
 	if err != nil {
@@ -375,7 +393,7 @@ func (c *Client) handleErrorResponse(ctx context.Context, result *APIResult, bod
 		Code:     ErrorCode(gw.Code),
 		Msg:      gw.Message,
 		Links:    gw.Links,
-		Verified: verified,
+		Verified: result.SignatureVerified,
 	}
 }
 

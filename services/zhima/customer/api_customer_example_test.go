@@ -1,9 +1,7 @@
 package customer_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	customer "github.com/tiyee/alipay-sdk-go/services/zhima/customer"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -195,10 +194,8 @@ func ExampleService_JobWorthAuthenticationQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customer.JobWorthAuthenticationQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customer.JobWorthAuthenticationQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -206,7 +203,7 @@ func ExampleService_JobWorthAuthenticationQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.JobWorthAuthenticationQuery(ctx, *request, callOptions...)
+	response, err := svc.JobWorthAuthenticationQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -303,10 +300,8 @@ func ExampleService_JobWorthInfoQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customer.JobWorthInfoQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customer.JobWorthInfoQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -314,7 +309,7 @@ func ExampleService_JobWorthInfoQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.JobWorthInfoQuery(ctx, *request, callOptions...)
+	response, err := svc.JobWorthInfoQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -407,10 +402,8 @@ func ExampleService_JobWorthJobDataAdd() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customer.JobWorthJobDataAddRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customer.JobWorthJobDataAddRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -418,7 +411,7 @@ func ExampleService_JobWorthJobDataAdd() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.JobWorthJobDataAdd(ctx, *request, callOptions...)
+	response, err := svc.JobWorthJobDataAdd(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -511,10 +504,8 @@ func ExampleService_JobWorthPictureUpload() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customer.JobWorthPictureUploadRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customer.JobWorthPictureUploadRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -522,7 +513,7 @@ func ExampleService_JobWorthPictureUpload() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.JobWorthPictureUpload(ctx, *request, callOptions...)
+	response, err := svc.JobWorthPictureUpload(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -615,10 +606,8 @@ func ExampleService_JobWorthPositionAdd() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *customer.JobWorthPositionAddRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[customer.JobWorthPositionAddRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -626,7 +615,7 @@ func ExampleService_JobWorthPositionAdd() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.JobWorthPositionAdd(ctx, *request, callOptions...)
+	response, err := svc.JobWorthPositionAdd(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

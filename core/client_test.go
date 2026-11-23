@@ -251,7 +251,7 @@ func TestClientBusinessErrorSignedAndClassified(t *testing.T) {
 	if apiErr.Links == "" {
 		t.Error("links must be preserved")
 	}
-	if resp.Result == nil || resp.Result.HTTPStatus != http.StatusBadRequest {
+	if resp.Result == nil || resp.Result.HTTPStatus != http.StatusBadRequest || !resp.Result.SignatureVerified {
 		t.Fatalf("result metadata missing: %+v", resp.Result)
 	}
 }
@@ -265,14 +265,14 @@ func TestClientUnsignedErrorIsUnverified(t *testing.T) {
 	defer gateway.Close()
 
 	client := newTestClient(t, gateway.URL)
-	_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
+	resp, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
 		Body: queryRequest{OutTradeNo: "202611050006"},
 	})
 	var apiErr *core.APIError
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("expected *core.APIError, got %v", err)
 	}
-	if apiErr.Verified {
+	if apiErr.Verified || resp.Result == nil || resp.Result.SignatureVerified {
 		t.Error("unsigned error must not be marked verified")
 	}
 	if apiErr.Code != "insufficient-isv-permissions" {
@@ -781,4 +781,63 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("handler failure must not affect result: %v, %+v", err, resp)
 		}
 	})
+}
+
+func TestSignedURIWithRepeatedQueryAndGatewayPrefix(t *testing.T) {
+	type req struct {
+		Items []string `query:"item"`
+		ID    string   `path:"id"`
+	}
+	op, err := core.NewJSONOperation[req, struct{}](core.OperationSpec{Method: "alipay.test.query", HTTPMethod: core.HTTPMethodGet, Path: "/v3/items/{id}", AuthRequirement: core.AuthRequirementAny})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, base := range []string{"/", "/proxy%2Fprefix/"} {
+		t.Run(base, func(t *testing.T) {
+			gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if want := strings.TrimSuffix(base, "/") + "/v3/items/a%2Fb?item=b%2B&item=&item=a%26"; r.RequestURI != want {
+					t.Errorf("URI %q, want %q", r.RequestURI, want)
+				}
+				testutil.VerifyV3Authorization(t, r, nil, "")
+				for key, value := range testutil.V3ResponseHeaders(t, []byte("{}"), "1764000000001", "response-nonce", "") {
+					w.Header()[key] = value
+				}
+				fmt.Fprint(w, "{}")
+			}))
+			defer gateway.Close()
+			_, err := core.Execute(t.Context(), newTestClient(t, gateway.URL+base), op, core.Request[req]{Body: req{ID: "a/b", Items: []string{"b+", "", "a&"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestRejectsNonBaseGateway(t *testing.T) {
+	for _, url := range []string{"https://gateway.test?x=1", "https://gateway.test?", "https://gateway.test/path#fragment", "https://user@gateway.test"} {
+		_, err := core.NewClient(testutil.NewCredentials(t), option.WithAppID(testAppID), option.WithGateway(url))
+		var cfg *core.ConfigError
+		if !errors.As(err, &cfg) || cfg.Field != "gateway" {
+			t.Fatalf("invalid gateway: %v", err)
+		}
+	}
+}
+
+func TestSignedNullCannotPopulateResponseStruct(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		node := []byte(" null\n")
+		for key, value := range testutil.V3ResponseHeaders(t, node, "1764000000001", "response-nonce", "") {
+			w.Header()[key] = value
+		}
+		w.Write(node)
+	}))
+	defer gateway.Close()
+	resp, err := core.Execute(t.Context(), newTestClient(t, gateway.URL), newQueryOperation(t), core.Request[queryRequest]{})
+	var protocolErr *core.ProtocolError
+	if !errors.As(err, &protocolErr) || resp == nil || resp.Result == nil || !resp.Result.SignatureVerified || resp.Data != nil {
+		t.Fatalf("unexpected response %+v, err %v", resp, err)
+	}
+	if value, err := core.JSONDecoder[*queryResponse]().Decode([]byte("null")); err != nil || value != nil {
+		t.Fatalf("nullable type: %v, %v", value, err)
+	}
 }

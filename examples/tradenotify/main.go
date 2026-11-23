@@ -107,7 +107,8 @@ func (h *notifyHandler) serveNotify(w http.ResponseWriter, r *http.Request) {
 	// 日志注入复用 slog 契约，默认输出仅包含分类字段。
 	notification, err := notify.ParseRequest(ctx, h.verifier, r, h.notifySvc)
 	if err != nil {
-		// 未知来源的请求：应答 fail，支付宝会按策略重发。
+		// 包括签名有效但存在字段歧义的通知。应答 fail，不更新订单。
+		// 商户应由独立对账流程使用本地订单号查询交易。
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("fail"))
 		return

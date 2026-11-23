@@ -1,9 +1,7 @@
 package merchant_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	merchant "github.com/tiyee/alipay-sdk-go/services/zhima/merchant"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -191,10 +190,8 @@ func ExampleService_SubsidiariesApply() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.SubsidiariesApplyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.SubsidiariesApplyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -202,7 +199,7 @@ func ExampleService_SubsidiariesApply() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SubsidiariesApply(ctx, *request, callOptions...)
+	response, err := svc.SubsidiariesApply(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -295,10 +292,8 @@ func ExampleService_SubsidiariesClose() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.SubsidiariesCloseRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.SubsidiariesCloseRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -306,7 +301,7 @@ func ExampleService_SubsidiariesClose() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SubsidiariesClose(ctx, *request, callOptions...)
+	response, err := svc.SubsidiariesClose(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -403,10 +398,8 @@ func ExampleService_ZmGoCumulateQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ZmGoCumulateQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ZmGoCumulateQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -414,7 +407,7 @@ func ExampleService_ZmGoCumulateQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ZmGoCumulateQuery(ctx, *request, callOptions...)
+	response, err := svc.ZmGoCumulateQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -507,10 +500,8 @@ func ExampleService_ZmGoCumulateSync() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ZmGoCumulateSyncRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ZmGoCumulateSyncRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -518,7 +509,7 @@ func ExampleService_ZmGoCumulateSync() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ZmGoCumulateSync(ctx, *request, callOptions...)
+	response, err := svc.ZmGoCumulateSync(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -611,10 +602,8 @@ func ExampleService_ZmGoTemplateCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ZmGoTemplateCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ZmGoTemplateCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -622,7 +611,7 @@ func ExampleService_ZmGoTemplateCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ZmGoTemplateCreate(ctx, *request, callOptions...)
+	response, err := svc.ZmGoTemplateCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

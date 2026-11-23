@@ -25,8 +25,9 @@ type PublicKeyCredentials struct {
 	verifier Verifier
 }
 
-// NewPublicKeyCredentials 构造公钥凭证。签名者公钥必须为 RSA，
-// 支付宝公钥不可为空。
+// NewPublicKeyCredentials 构造公钥凭证。双方 RSA 公钥的模数和指数
+// 必须有效且不少于 2048 位；标准库 RSA 私钥还需通过参数一致性校验。
+// 自定义 crypto.Signer 的内部配置由其实现负责，构造不调用 Sign。
 func NewPublicKeyCredentials(config PublicKeyConfig) (*PublicKeyCredentials, error) {
 	if isNilInterface(config.AppSigner) {
 		return nil, nilCredentialsErr("app signer")

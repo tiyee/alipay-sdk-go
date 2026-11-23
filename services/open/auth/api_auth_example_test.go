@@ -1,9 +1,7 @@
 package auth_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	alipayauth "github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	auth "github.com/tiyee/alipay-sdk-go/services/open/auth"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -194,10 +193,8 @@ func ExampleService_AuthAppAESSet() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *auth.AuthAppAESSetRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[auth.AuthAppAESSetRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -205,7 +202,7 @@ func ExampleService_AuthAppAESSet() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.AuthAppAESSet(ctx, *request, callOptions...)
+	response, err := svc.AuthAppAESSet(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -298,10 +295,8 @@ func ExampleService_AuthTokenAppQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *auth.AuthTokenAppQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[auth.AuthTokenAppQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -309,7 +304,7 @@ func ExampleService_AuthTokenAppQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.AuthTokenAppQuery(ctx, *request, callOptions...)
+	response, err := svc.AuthTokenAppQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -406,10 +401,8 @@ func ExampleService_AuthUserAuthRelationshipQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *auth.AuthUserAuthRelationshipQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[auth.AuthUserAuthRelationshipQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -417,7 +410,7 @@ func ExampleService_AuthUserAuthRelationshipQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.AuthUserAuthRelationshipQuery(ctx, *request, callOptions...)
+	response, err := svc.AuthUserAuthRelationshipQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

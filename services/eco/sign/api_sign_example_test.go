@@ -1,9 +1,7 @@
 package sign_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	sign "github.com/tiyee/alipay-sdk-go/services/eco/sign"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -193,10 +192,8 @@ func ExampleService_SignFlowCancel() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *sign.SignFlowCancelRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[sign.SignFlowCancelRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -204,7 +201,7 @@ func ExampleService_SignFlowCancel() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SignFlowCancel(ctx, *request, callOptions...)
+	response, err := svc.SignFlowCancel(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -297,10 +294,8 @@ func ExampleService_SignFlowCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *sign.SignFlowCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[sign.SignFlowCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -308,7 +303,7 @@ func ExampleService_SignFlowCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SignFlowCreate(ctx, *request, callOptions...)
+	response, err := svc.SignFlowCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -401,10 +396,8 @@ func ExampleService_SignFlowFinish() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *sign.SignFlowFinishRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[sign.SignFlowFinishRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -412,7 +405,7 @@ func ExampleService_SignFlowFinish() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.SignFlowFinish(ctx, *request, callOptions...)
+	response, err := svc.SignFlowFinish(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

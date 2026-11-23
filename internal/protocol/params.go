@@ -12,7 +12,11 @@ import (
 
 const notifyNameChars = "[A-Za-z0-9_]+"
 
+var notifyName = regexp.MustCompile("^" + notifyNameChars + "$")
 var notifyBoundary = regexp.MustCompile("&" + notifyNameChars + "=")
+
+// ValidNotifyName 报告字段名能否按普通支付通知的字段边界规则识别。
+func ValidNotifyName(name string) bool { return notifyName.MatchString(name) }
 
 // HasNotifyBoundary 报告单次解码的字段值是否可能被解释为另一个通知字段。
 func HasNotifyBoundary(value string) bool { return notifyBoundary.MatchString(value) }

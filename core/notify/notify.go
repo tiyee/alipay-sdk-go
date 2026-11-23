@@ -17,6 +17,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -189,18 +190,23 @@ func NewHandler(credentials auth.Credentials, policy Policy, opts ...ParseOption
 	return &Handler{policy: policy, verifier: verifier, settings: settings}, nil
 }
 
+// ErrAmbiguousParameters 表示通知签名有效，但字段值内含可能改变表单边界的片段。
+// 商户应使用本地订单主动查询并核实交易后再更新订单。
+var ErrAmbiguousParameters = errors.New("ambiguous signed notification parameters")
+
 // Parse 基于已解码一次的通知表单参数完成验签与领域映射。
 // values 应来自对原始请求体的一次解析（例如框架已解码的表单）；
 // 本方法不会再次解码，也不修改调用方传入的 values。
 // 重复参数属于歧义输入，一律拒绝，不静默选择首项或末项。
 //
 // 验证顺序：重复参数 → charset → notify_type → sign_type →
-// sign 存在性 → 验签 → 领域映射。任何一步失败都不输出
+// sign 存在性 → 验签 → 字段边界检查 → 领域映射。任何一步失败都不输出
 // 可信业务数据；验签失败返回 *core.SignatureError。
 //
+// 验签成功后，若值内含 &name= 则返回可由 errors.Is 识别的 ErrAmbiguousParameters。
 // 空值参数参与待验签串（与请求签名不同，官方验签文档未要求通知剔除空值）；
-// charset 仅支持 utf-8；sign_type 与 RSA2 不一致时拒绝，
-// 缺失时按 RSA2 验签。ctx 用于验签器与日志传递调用上下文。
+// charset 仅支持 utf-8；sign_type 必须明确为 RSA2。
+// ctx 用于验签器与日志传递调用上下文。
 func Parse[T any](ctx context.Context, h *Handler, values url.Values,
 	decoder Decoder[T]) (Notification[T], error) {
 	if ctx == nil {
@@ -267,6 +273,9 @@ func parse[T any](ctx context.Context, h *Handler, values url.Values,
 	form := compat.CloneValues(values)
 	var duplicated []string
 	for key, vs := range form {
+		if !protocol.ValidNotifyName(key) || len(vs) == 0 {
+			return zero, nil, &core.ProtocolError{Op: "parse", Reason: "invalid notify parameter name or absent value"}
+		}
 		if len(vs) > 1 {
 			duplicated = append(duplicated, key)
 		}
@@ -287,9 +296,9 @@ func parse[T any](ctx context.Context, h *Handler, values url.Values,
 		return zero, nil, &core.ValidationError{Field: "notify_type",
 			Reason: "notify type does not match the selected policy"}
 	}
-	if signType := form.Get(protocol.ParamSignType); signType != "" && signType != auth.SignatureAlgorithmRSA2.String() {
+	if form.Get(protocol.ParamSignType) != auth.SignatureAlgorithmRSA2.String() {
 		return zero, nil, &core.SignatureError{Stage: "notify",
-			Reason: "unsupported sign type; only " + auth.SignatureAlgorithmRSA2.String() + " is supported"}
+			Reason: "sign_type is required and must be " + auth.SignatureAlgorithmRSA2.String()}
 	}
 	sign := form.Get(protocol.ParamSign)
 	if sign == "" {
@@ -306,11 +315,23 @@ func parse[T any](ctx context.Context, h *Handler, values url.Values,
 		// 证书模式由认证层按本地可信材料语义处理。
 	}
 	if err := h.verifier.Verify(ctx, input); err != nil {
+		if _, ok := compat.AsType[*auth.CertValidityError](err); ok {
+			return zero, nil, &core.CertificateError{Reason: "notify certificate validity check failed", Err: err}
+		}
+		if _, ok := compat.AsType[*auth.CertSelectError](err); ok {
+			return zero, nil, &core.CertificateError{Reason: "notify requires one trusted Alipay certificate", Err: err}
+		}
 		return zero, nil, &core.SignatureError{Stage: "notify",
 			Reason: "verify notify signature", Err: err}
 	}
 	delete(form, protocol.ParamSign)
 	delete(form, protocol.ParamSignType)
+	// 签名覆盖按 & 拼接的字节，无法区分值中的 &name= 与真实字段边界。
+	for _, values := range form {
+		if protocol.HasNotifyBoundary(values[0]) {
+			return zero, nil, &core.ProtocolError{Op: "parse", Reason: "cannot determine signed field boundaries", Err: ErrAmbiguousParameters}
+		}
+	}
 	data, err := decoder.Decode(form)
 	if err != nil {
 		return zero, nil, &core.ProtocolError{Op: "decode",

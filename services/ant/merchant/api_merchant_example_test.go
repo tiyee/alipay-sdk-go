@@ -1,9 +1,7 @@
 package merchant_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	"github.com/tiyee/alipay-sdk-go/services/ant/merchant"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -187,10 +186,8 @@ func ExampleService_ExpandAppRecommendAccountCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandAppRecommendAccountCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandAppRecommendAccountCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -198,7 +195,7 @@ func ExampleService_ExpandAppRecommendAccountCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandAppRecommendAccountCreate(ctx, *request, callOptions...)
+	response, err := svc.ExpandAppRecommendAccountCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -291,10 +288,8 @@ func ExampleService_ExpandAppRecommendAccountDelete() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandAppRecommendAccountDeleteRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandAppRecommendAccountDeleteRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -302,7 +297,7 @@ func ExampleService_ExpandAppRecommendAccountDelete() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandAppRecommendAccountDelete(ctx, *request, callOptions...)
+	response, err := svc.ExpandAppRecommendAccountDelete(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -395,10 +390,8 @@ func ExampleService_ExpandAppRecommendAvailableQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandAppRecommendAvailableQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandAppRecommendAvailableQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -406,7 +399,7 @@ func ExampleService_ExpandAppRecommendAvailableQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandAppRecommendAvailableQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandAppRecommendAvailableQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -499,10 +492,8 @@ func ExampleService_ExpandInfoQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandInfoQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandInfoQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -510,7 +501,7 @@ func ExampleService_ExpandInfoQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandInfoQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandInfoQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -603,10 +594,8 @@ func ExampleService_ExpandItemCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -614,7 +603,7 @@ func ExampleService_ExpandItemCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemCreate(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -707,10 +696,8 @@ func ExampleService_ExpandItemDelete() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemDeleteRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemDeleteRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -718,7 +705,7 @@ func ExampleService_ExpandItemDelete() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemDelete(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemDelete(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -811,10 +798,8 @@ func ExampleService_ExpandItemModify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemModifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemModifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -822,7 +807,7 @@ func ExampleService_ExpandItemModify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemModify(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemModify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -915,10 +900,8 @@ func ExampleService_ExpandItemOpenBatchQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemOpenBatchQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemOpenBatchQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -926,7 +909,7 @@ func ExampleService_ExpandItemOpenBatchQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemOpenBatchQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemOpenBatchQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1019,10 +1002,8 @@ func ExampleService_ExpandItemOpenCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemOpenCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemOpenCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1030,7 +1011,7 @@ func ExampleService_ExpandItemOpenCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemOpenCreate(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemOpenCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1123,10 +1104,8 @@ func ExampleService_ExpandItemOpenDelete() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemOpenDeleteRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemOpenDeleteRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1134,7 +1113,7 @@ func ExampleService_ExpandItemOpenDelete() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemOpenDelete(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemOpenDelete(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1227,10 +1206,8 @@ func ExampleService_ExpandItemOpenModify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemOpenModifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemOpenModifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1238,7 +1215,7 @@ func ExampleService_ExpandItemOpenModify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemOpenModify(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemOpenModify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1331,10 +1308,8 @@ func ExampleService_ExpandItemOpenQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemOpenQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemOpenQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1342,7 +1317,7 @@ func ExampleService_ExpandItemOpenQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemOpenQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemOpenQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1435,10 +1410,8 @@ func ExampleService_ExpandItemQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1446,7 +1419,7 @@ func ExampleService_ExpandItemQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1539,10 +1512,8 @@ func ExampleService_ExpandItemStatusModify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandItemStatusModifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandItemStatusModifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1550,7 +1521,7 @@ func ExampleService_ExpandItemStatusModify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandItemStatusModify(ctx, *request, callOptions...)
+	response, err := svc.ExpandItemStatusModify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1643,10 +1614,8 @@ func ExampleService_ExpandShopConsult() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopConsultRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopConsultRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1654,7 +1623,7 @@ func ExampleService_ExpandShopConsult() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopConsult(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopConsult(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1747,10 +1716,8 @@ func ExampleService_ExpandShopReceiptAccountSave() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopReceiptAccountSaveRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopReceiptAccountSaveRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1758,7 +1725,7 @@ func ExampleService_ExpandShopReceiptAccountSave() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopReceiptAccountSave(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopReceiptAccountSave(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1851,10 +1818,8 @@ func ExampleService_ExpandIndirectImageUpload() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandIndirectImageUploadRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandIndirectImageUploadRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1862,7 +1827,7 @@ func ExampleService_ExpandIndirectImageUpload() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandIndirectImageUpload(ctx, *request, callOptions...)
+	response, err := svc.ExpandIndirectImageUpload(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1955,10 +1920,8 @@ func ExampleService_ExpandMCCQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandMCCQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandMCCQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1966,7 +1929,7 @@ func ExampleService_ExpandMCCQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandMCCQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandMCCQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2059,10 +2022,8 @@ func ExampleService_ExpandOrderQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandOrderQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandOrderQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2070,7 +2031,7 @@ func ExampleService_ExpandOrderQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandOrderQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandOrderQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2167,10 +2128,8 @@ func ExampleService_ExpandShopQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2178,7 +2137,7 @@ func ExampleService_ExpandShopQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2275,10 +2234,8 @@ func ExampleService_ExpandShopModify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopModifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopModifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2286,7 +2243,7 @@ func ExampleService_ExpandShopModify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopModify(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopModify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2379,10 +2336,8 @@ func ExampleService_ExpandShopCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2390,7 +2345,7 @@ func ExampleService_ExpandShopCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopCreate(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2483,10 +2438,8 @@ func ExampleService_ExpandShopClose() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopCloseRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopCloseRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2494,7 +2447,7 @@ func ExampleService_ExpandShopClose() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopClose(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopClose(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -2587,10 +2540,8 @@ func ExampleService_ExpandShopPageQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *merchant.ExpandShopPageQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[merchant.ExpandShopPageQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -2598,7 +2549,7 @@ func ExampleService_ExpandShopPageQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.ExpandShopPageQuery(ctx, *request, callOptions...)
+	response, err := svc.ExpandShopPageQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

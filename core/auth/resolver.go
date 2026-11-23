@@ -62,6 +62,8 @@ func (s *trustedCertificateSet) SNs() []string {
 //   - keyID 为空：协议未提供标识。仅当本地恰好配置一张证书时
 //     使用该证书（与官方对通知的验签方式一致）；配置多张时无法
 //     唯一确定可信材料，明确失败，不盲试未确认密钥。
+//
+// V3 REST 在 core 层强制要求 alipay-sn；空标识只用于普通支付通知契约。
 func (s *trustedCertificateSet) verify(payload []byte, signature, keyID string) error {
 	if keyID == "" {
 		if len(s.sns) != 1 {

@@ -1,9 +1,7 @@
 package consume_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -11,12 +9,13 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/services/commerce/ec/consume"
 	"github.com/tiyee/alipay-sdk-go/utils"
 )
 
 // ExampleService_EcConsumeDetailQuery 展示 alipay.commerce.ec.consume.detail.query 的平台证书接入流程。
-// ALIPAY_EXAMPLE_REQUEST 指向按 ec.EcConsumeDetailQueryRequest 编写的 JSON 请求文件；
+// ALIPAY_EXAMPLE_REQUEST 指向按 consume.EcConsumeDetailQueryRequest 编写的 JSON 请求文件；
 // 字段、条件必填与业务状态请参照本包 README 及方法 GoDoc 中的官方契约。
 // 示例没有 Output 注释，go test 只编译，不读取配置或执行真实调用。
 func ExampleService_EcConsumeDetailQuery() {
@@ -97,10 +96,8 @@ func ExampleService_EcConsumeDetailQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *consume.EcConsumeDetailQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[consume.EcConsumeDetailQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -108,7 +105,7 @@ func ExampleService_EcConsumeDetailQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.EcConsumeDetailQuery(ctx, *request, callOptions...)
+	response, err := svc.EcConsumeDetailQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

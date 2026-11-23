@@ -1,9 +1,7 @@
 package matchuser_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	matchuser "github.com/tiyee/alipay-sdk-go/services/open/public/matchuser"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -193,10 +192,8 @@ func ExampleService_PublicMatchUserLabelCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *matchuser.PublicMatchUserLabelCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[matchuser.PublicMatchUserLabelCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -204,7 +201,7 @@ func ExampleService_PublicMatchUserLabelCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PublicMatchUserLabelCreate(ctx, *request, callOptions...)
+	response, err := svc.PublicMatchUserLabelCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

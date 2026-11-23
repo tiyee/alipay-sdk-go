@@ -111,15 +111,15 @@ type Credentials interface {
 // CertSelectError 表示验签所需的材料标识未匹配本地可信证书，
 // 或协议未提供必需的标识。出现该错误时报文内容不能作为可信结果。
 type CertSelectError struct {
-	// KeyID 是未匹配的证书标识；为空表示协议未提供标识
-	// 且本地可信材料无法唯一确定。
+	// KeyID 是未匹配的证书标识；为空表示缺少协议要求的标识，
+	// 或通知使用的本地证书无法唯一确定。
 	KeyID string
 }
 
 // Error 实现 error 接口。
 func (e *CertSelectError) Error() string {
 	if e.KeyID == "" {
-		return "alipay/auth: no certificate key id provided and the trusted material is not unique"
+		return "alipay/auth: missing required certificate key id or notification certificate is not unique"
 	}
 	return fmt.Sprintf("alipay/auth: key id %q does not match any trusted local certificate", e.KeyID)
 }
@@ -130,7 +130,8 @@ type rsa2Signer struct {
 }
 
 // NewRSA2Signer 基于 crypto.Signer 构建 RSA2 签名器。
-// 构造时检查公钥为 RSA 且不少于 2048 位。
+// 构造时校验 RSA 公钥参数及至少 2048 位的长度；
+// 标准库 RSA 私钥还需通过参数一致性校验。
 // 导出供凭证实现与外部自定义 Credentials 复用同一适配。
 func NewRSA2Signer(signer crypto.Signer) (Signer, error) {
 	inner, err := signers.NewRSA2(signer)

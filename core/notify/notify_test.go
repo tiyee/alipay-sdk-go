@@ -155,9 +155,9 @@ func TestParseSingleDecodeSpecialCharacters(t *testing.T) {
 	}{
 		{name: "space as plus", subject: "测试 单据", body: "备注 A"},
 		{name: "literal plus", subject: "a+b", body: "C++"},
-		{name: "ampersand and equals", subject: "a&b=c", body: "x=1&y=2"},
+		{name: "ampersand and equals", subject: "a&b", body: "x=1&中文"},
 		{name: "chinese utf-8", subject: "支付宝交易", body: "中文内容"},
-		{name: "mixed", subject: "测试 a+b&c=d e", body: "x=1&y=2 单据+&="},
+		{name: "mixed", subject: "测试 a+b&c d=e", body: "x=1&y%3D2 单据+&="},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -620,5 +620,73 @@ func TestPolicyString(t *testing.T) {
 func TestDefaultMaxFormBytes(t *testing.T) {
 	if notify.DefaultMaxFormBytes <= 0 || notify.DefaultMaxFormBytes > 1<<20 {
 		t.Fatalf("unexpected default max form bytes: %d", notify.DefaultMaxFormBytes)
+	}
+}
+
+// 两张字段划分不同的表单复用同一个有效签名。
+func TestParseRejectsAmbiguousSignedOrders(t *testing.T) {
+	first, second := baseForm(), baseForm()
+	first.Set("out_trade_no", "orderA")
+	second.Set("out_trade_no", "orderB")
+	// 在排序后的 out_trade_no 前后各取一个字段容纳分隔符。
+	first.Set("notify_type", testNotify)
+	first.Set("order_note", "note&out_trade_no=orderB&out_z=x")
+	second.Set("order_note", "note")
+	second.Set("out_z", "x&out_trade_no=orderA")
+	if notifySignContent(first) != notifySignContent(second) {
+		t.Fatal("fixture must have identical signed bytes")
+	}
+	signed := signedForm(t, first)
+	second.Set("sign", signed.Get("sign"))
+	second.Set("sign_type", "RSA2")
+	h := newHandler(t)
+	for _, form := range []url.Values{signed, second} {
+		result, err := notify.Parse(t.Context(), h, form, testDecoder)
+		if !errors.Is(err, notify.ErrAmbiguousParameters) || result.Data != nil || result.Params != nil {
+			t.Fatalf("Parse returned %+v, %v", result, err)
+		}
+		result, err = notify.ParseRequest(t.Context(), h, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode())), testDecoder)
+		if !errors.Is(err, notify.ErrAmbiguousParameters) || result.Data != nil || result.Params != nil {
+			t.Fatalf("ParseRequest returned %+v, %v", result, err)
+		}
+	}
+}
+
+func TestParseRequiresExplicitSignType(t *testing.T) {
+	handler := newHandler(t)
+	for _, signType := range []string{"", "RSA", "rsa2"} {
+		t.Run(signType, func(t *testing.T) {
+			form := signedForm(t, baseForm())
+			form.Set("sign_type", signType)
+			if signType == "" {
+				form.Del("sign_type")
+			}
+			result, err := notify.Parse(t.Context(), handler, form, testDecoder)
+			var signatureErr *core.SignatureError
+			if !errors.As(err, &signatureErr) || result.Data != nil || result.Params != nil {
+				t.Fatalf("Parse = %+v, %v", result, err)
+			}
+			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode()))
+			result, err = notify.ParseRequest(t.Context(), handler, request, testDecoder)
+			if !errors.As(err, &signatureErr) || result.Data != nil || result.Params != nil {
+				t.Fatalf("ParseRequest = %+v, %v", result, err)
+			}
+		})
+	}
+}
+
+func TestParseReportsAmbiguousCertificateConfiguration(t *testing.T) {
+	suite := testutil.NewCertSuite(t)
+	second, _ := suite.NewSecondAlipayCert(t)
+	credentials := suite.NewCertificateCredentials(t, suite.AlipayCertPEM, testutil.CertToPEM(t, second))
+	handler, err := notify.NewHandler(credentials, notify.PolicyTradeStatusSync)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := notify.Parse(t.Context(), handler, signedForm(t, baseForm()), testDecoder)
+	var certErr *core.CertificateError
+	var selectErr *auth.CertSelectError
+	if !errors.As(err, &certErr) || !errors.As(err, &selectErr) || result.Data != nil || result.Params != nil {
+		t.Fatalf("Parse = %+v, %v", result, err)
 	}
 }

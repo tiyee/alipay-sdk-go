@@ -1,9 +1,7 @@
 package fincloud_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	fincloud "github.com/tiyee/alipay-sdk-go/services/datadigital/fincloud"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -193,10 +192,8 @@ func ExampleService_GeneralSaaSFaceCertifyInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceCertifyInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceCertifyInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -204,7 +201,7 @@ func ExampleService_GeneralSaaSFaceCertifyInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceCertifyInitialize(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceCertifyInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -297,10 +294,8 @@ func ExampleService_GeneralSaaSFaceCertifyVerify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceCertifyVerifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceCertifyVerifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -308,7 +303,7 @@ func ExampleService_GeneralSaaSFaceCertifyVerify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceCertifyVerify(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceCertifyVerify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -401,10 +396,8 @@ func ExampleService_GeneralSaaSFaceCheckInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceCheckInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceCheckInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -412,7 +405,7 @@ func ExampleService_GeneralSaaSFaceCheckInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceCheckInitialize(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceCheckInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -505,10 +498,8 @@ func ExampleService_GeneralSaaSFaceCheckQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceCheckQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceCheckQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -516,7 +507,7 @@ func ExampleService_GeneralSaaSFaceCheckQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceCheckQuery(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceCheckQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -613,10 +604,8 @@ func ExampleService_GeneralSaaSFaceSourceCertify() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceSourceCertifyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceSourceCertifyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -624,7 +613,7 @@ func ExampleService_GeneralSaaSFaceSourceCertify() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceSourceCertify(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceSourceCertify(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -717,10 +706,8 @@ func ExampleService_GeneralSaaSFaceVerificationInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceVerificationInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceVerificationInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -728,7 +715,7 @@ func ExampleService_GeneralSaaSFaceVerificationInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceVerificationInitialize(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceVerificationInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -821,10 +808,8 @@ func ExampleService_GeneralSaaSFaceVerificationQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSFaceVerificationQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSFaceVerificationQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -832,7 +817,7 @@ func ExampleService_GeneralSaaSFaceVerificationQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSFaceVerificationQuery(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSFaceVerificationQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -929,10 +914,8 @@ func ExampleService_GeneralSaaSOCRMobileInitialize() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSOCRMobileInitializeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSOCRMobileInitializeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -940,7 +923,7 @@ func ExampleService_GeneralSaaSOCRMobileInitialize() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSOCRMobileInitialize(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSOCRMobileInitialize(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1033,10 +1016,8 @@ func ExampleService_GeneralSaaSOCRServerDetect() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *fincloud.GeneralSaaSOCRServerDetectRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[fincloud.GeneralSaaSOCRServerDetectRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1044,7 +1025,7 @@ func ExampleService_GeneralSaaSOCRServerDetect() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.GeneralSaaSOCRServerDetect(ctx, *request, callOptions...)
+	response, err := svc.GeneralSaaSOCRServerDetect(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

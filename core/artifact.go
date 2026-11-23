@@ -47,6 +47,9 @@ func NewArtifactBuilder(credentials auth.Credentials, opts ...ClientOption) (*Ar
 			return nil, err
 		}
 	}
+	if settings.Mode != auth.ModeUnset {
+		return nil, &ConfigError{Field: "auth_mode", Reason: "auth mode is derived from credentials and cannot be set by options"}
+	}
 	settings.Mode = snapshot.mode
 	settings.applyDefaults()
 	if err := settings.validate(); err != nil {
@@ -55,6 +58,8 @@ func NewArtifactBuilder(credentials auth.Credentials, opts ...ClientOption) (*Ar
 	if err := settings.validateArtifactGateway(); err != nil {
 		return nil, err
 	}
+	settings.Gateway = compat.CloneURL(settings.Gateway)
+	settings.ArtifactGateway = compat.CloneURL(settings.ArtifactGateway)
 	return &ArtifactBuilder{settings: settings, snapshot: snapshot, now: time.Now}, nil
 }
 
@@ -185,6 +190,9 @@ func (b *ArtifactBuilder) BuildArtifact(ctx context.Context, method string, bizP
 	signContent := protocol.BuildSignContent(values)
 	signature, err := b.snapshot.signer.Sign(ctx, []byte(signContent))
 	if err != nil {
+		if _, ok := compat.AsType[*auth.CertValidityError](err); ok {
+			return nil, &CertificateError{Reason: "artifact certificate validity check failed", Err: err}
+		}
 		return nil, &SignatureError{Stage: "request", Reason: "sign artifact", Err: err}
 	}
 	values.Set(protocol.ParamSign, signature.Value)

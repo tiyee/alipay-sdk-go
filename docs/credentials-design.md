@@ -1,6 +1,6 @@
 # Credentials 认证凭证接口实现方案
 
-状态：实现方案，尚未落地；本文不表示已支持证书模式或 V3。日期：2026-11-05。基线为 Go 1.27，关联[整体架构](architecture.md)、[开发计划](development-plan.md)和[接口版本选型](api-versions.md)。
+状态：Credentials、Signer/Verifier、公钥凭证、证书凭证及通知集成已实现并通过离线验证。`core.Client` 复用 Credentials 提供的签名、验签与证书身份能力；V3 REST 请求经 Authorization 头签名、响应按 `alipay-sn` 选择可信证书验签。相同凭证契约也用于页面产物构建与通知验签。SDK 首版尚未发布，仅支持支付宝 V3。最低支持 Go 1.24.0，关联[整体架构](architecture.md)、[开发计划](development-plan.md)和[接口版本说明](api-versions.md)。
 
 ## 1. 设计结论与当前问题
 
@@ -10,7 +10,7 @@
 func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, error)
 ```
 
-当前 `core.Settings` 同时保存 Signer、Verifier 和 AuthMode，`option.WithVerifier` 还会将模式设置为公钥，存在认证选项相互覆盖的设计问题。本方案把这些配置集中到凭证构造器，公共选项只管理 APPID、环境、HTTP、超时和 slog 等资源。
+改造前的 `core.Settings` 同时保存 Signer、Verifier 和 AuthMode，`option.WithVerifier` 还会将模式设置为公钥，存在认证选项相互覆盖的设计问题。本方案把这些配置集中到凭证构造器，公共选项只管理 APPID、环境、HTTP、超时和 slog 等资源。
 
 本方案采用普通的、可由外部包实现的 Credentials 接口，不使用封闭的类型集合，也不把 Client 改为泛型类型。两种模式的 Client 都是 `*core.Client`，因此模式约束在构造与执行阶段检查，不能宣称基础 Client 已实现编译期模式隔离。
 
@@ -144,7 +144,7 @@ type CertificateProvider interface {
 
 CertificateCredentials 实现 CertificateProvider；PublicKeyCredentials 只实现 Credentials。Client 构造时若得到 ModeCertificate，必须同时具备证书身份能力、通过验证并提供完整材料；模式与能力不一致则失败，不自动推断或修正模式。
 
-身份数据只是已核验的只读标识，不包含私钥或可信材料的可变引用。标识计算依据[官方证书说明](https://opendocs.alipay.com/common/02kdne.md)，签名依据[官方规范](https://opendocs.alipay.com/common/057k53.md)。V2/V3 分别决定元数据的映射方式，不把 V2 参数名原样套入 V3。
+身份数据只是已核验的只读标识，不包含私钥或可信材料的可变引用。标识计算依据[官方证书说明](https://opendocs.alipay.com/common/02kdne.md)，签名依据[官方规范](https://opendocs.alipay.com/common/057k53.md)。标识的映射方式由各调用形态决定：V3 REST 写入 Authorization authString 与 `alipay-root-cert-sn` 头，页面产物作为网关签名参数，通知验签直接使用支付宝证书公钥（通知参数不含 SN）。
 
 ### 4.3 可变数据与第三方实现
 
@@ -166,8 +166,12 @@ func NewClient(credentials auth.Credentials, opts ...ClientOption) (*Client, err
 1. 拒绝 nil 和 typed nil Credentials，调用其 Validate。
 2. 获取 Mode、Signer、Verifier，拒绝未定义模式、nil/typed nil 算法对象和算法配置不一致。
 3. 证书模式读取 CertificateProvider 的身份副本，检查模式与能力一致性；不下载证书。
-4. 处理公共选项并校验 APPID、环境、HTTP、超时等配置。
+4. 处理公共选项并集中校验 APPID、网关 URL、HTTP 依赖、超时、响应上限与日志处理器；自定义 ClientOption 不能绕过。配置非法时返回错误和 nil 实例，不能用默认值覆盖非法输入。认证模式只由 Credentials 派生，选项设置该字段会报错。
 5. 绑定只读认证快照与公共资源，成功后才返回 Client。
+
+构造校验仅覆盖本地可验证的条件，不发起网络请求；应用开通、远端授权与网络可达性通过实际调用确认。凭证即使在创建时有效，也必须在 Client 初始化时重新检查当前有效期，并在之后的签名、验签时继续检查。网关 URL 在构造成功时复制，避免调用方随后修改原 URL 使已验证配置失效。
+
+内置 RSA2 装载入口要求有效的模数、指数及至少 2048 位的公钥，并用标准库校验 `*rsa.PrivateKey` 的参数一致性。已有的预计算缓存不能代替对当前传入参数的校验。自定义 `crypto.Signer` 只检查公开材料，其内部配置由实现负责；构造不尝试签名来探测远端服务。
 
 Client 保存已经校验的模式、Signer、Verifier 和证书身份快照，执行时不反复调用 Credentials getter 选择另一套对象。签名器和验签器可以按自身契约实现并发安全的内部机制，但不能在调用方原地修改配置后悄悄切换认证模式。
 
@@ -198,9 +202,9 @@ client, err := core.NewClient(credentials,
 请求链路：校验 Operation 的认证要求 → 协议层构造参数、身份与签名原文 → 快照 Signer 签名 → HTTP 发送 → 协议层提取原始响应、签名和标识 → 快照 Verifier 验签 → 按需解密 → 泛型业务解码。
 
 - 公钥验签器只使用配置的可信公钥。
-- 证书验签器按协议标识查找本地可信证书，校验对应信任、时效与标识；未知证书失败，不降级到公钥或无验签。
-- 签名原文、V3 REST 鉴权、传统格式页面产物与通知解析由对应协议/调用方式负责，Credentials 不猜测 API 的传输方式。
-- 认证模式、V2/V3 协议和 REST/页面/App 调用方式分别建模，遵守既有 V3 优先规则。
+- 证书签名器、验签器及 `Validate` 在每次使用时检查全部配置材料的有效期，任一材料失效返回 `*auth.CertValidityError`。REST 带签名响应必须提供 `alipay-sn`，验签器据此选择本地证书。运行期证书错误由公开入口包装为 `*core.CertificateError`，签名不匹配返回 `*core.SignatureError`。
+- 签名原文、V3 REST 鉴权、传统格式页面产物与通知解析由对应调用方式负责，Credentials 不猜测 API 的传输方式。
+- 认证模式与 REST/页面/App 调用方式分别建模；SDK 仅支持 V3，不因调用失败切换认证模式或协议。
 
 公共 Client 类型本身不区分公钥与证书，因此必须证书的接口依靠执行前校验。目标 OperationSpec 增加具名 AuthRequirement：
 
@@ -219,7 +223,7 @@ SDK 不能证明任意自定义 Operation 声明都符合尚未收录的接口�
 
 ## 7. Service、泛型与通知
 
-普通领域 Service 和用户自己的 Service 继续接收 `core.Executor`，不持有 Signer/Verifier，也不重复证书选择流程。Client 的普通 Do 仍实现 Executor，泛型方法继续委托共享流程：
+普通领域 Service 和用户自己的 Service 继续接收 `core.Executor`，不持有 Signer/Verifier，也不重复证书选择流程。Client 的普通 Do 实现 Executor，Go 1.27 起提供的泛型方法也委托共享流程：
 
 ```go
 func (c *Client) Execute[Req, Resp any](ctx context.Context,
@@ -240,31 +244,15 @@ func (h *Handler) ParseRequest[T any](ctx context.Context,
 	req *http.Request, decoder Decoder[T]) (*Notification[T], error)
 ```
 
-通知 Handler 绑定自身验证所需的快照，不依赖 Client 的私有 HTTP 执行逻辑。通知策略和认证模式分开；证书标识来自该通知类型的实际契约，缺少必要信息时明确失败，不盲试未确认密钥。原有 Parse 函数与领域通知示例需配套迁移。
+通知 Handler 绑定自身验证所需的快照，不依赖 Client 的私有 HTTP 执行逻辑。通知策略和认证模式分开；证书标识来自该通知类型的实际契约，缺少必要信息时明确失败，不盲试未确认密钥。
 
-## 8. 迁移与实施顺序
+## 8. 当前实现
 
-这是明确的公开 API 变更：NewClient 增加必选首参，认证选项迁移到凭证工厂，Signer/Verifier 接口增加上下文和确定的验证输入。Client 仍是普通类型，领域 Executor 与请求/响应泛型保持职责不变。
+`core.NewClient(credentials, opts...)` 要求显式传入 `auth.Credentials`。公钥与证书凭证分别通过 `auth.NewPublicKeyCredentials` 和 `auth.NewCertificateCredentials` 构造；ClientOption 不切换认证策略。
 
-| 当前入口 | 目标入口 |
-| --- | --- |
-| `core.NewClient(opts...)` | `core.NewClient(credentials, opts...)` |
-| `option.WithPrivateKey` | 将解析后的应用密钥传入凭证配置 AppSigner |
-| `option.WithAlipayPublicKey` | PublicKeyConfig 的 AlipayPublicKey |
-| `option.WithSigner` / `WithVerifier` | 凭证实现负责组合，公共 ClientOption 不再设置 |
-| `Settings.AuthMode` | Credentials 派生并绑定的只读模式信息 |
-| 直接给通知函数传 Verifier | Credentials 首参的 Handler 与类型化 Decoder |
+V3 REST 请求经 Authorization 头签名，证书模式另发送 `alipay-root-cert-sn`；响应按 `alipay-sn` 选择可信证书验签。页面产物构建与通知验签复用 Credentials 的签名/验证能力，但分别遵循各自契约。
 
-建议在 V3 迁移和首次稳定发布前统一调整，提供调用迁移示例，不宣称原构造调用可无感兼容。旧自定义签名器若只实现旧接口，应增加适配器或按新接口迁移，不能用无类型参数猜测旧/新配置。
-
-实施步骤：
-
-1. **C1：接口与公钥迁移。** 定义 Credentials/Signer/Verifier 新契约，实现公钥凭证和适配器，调整 NewClient 首参与公共配置，更新全部构造用例与扩展示例，验证现有公钥行为等价。
-2. **C2：衔接 V3。** 将签名器、验签器与认证身份接入独立 V3 处理器，完成既有交易与账单示例迁移，不跨协议或跨模式降级。
-3. **C3：P5 证书模式。** 实现 CertificateCredentials、CertificateProvider、证书校验及可信索引，启用能力检查与对应通知场景，再更新覆盖状态。
-4. **C4：整理交付。** 完成第三方 Credentials 示例、两种模式的行为一致性与错误用例、通知迁移、证书更新说明及版本策略。
-
-C1 可与 V3 里程碑合并实施；C3 在 P5 完成。首期本地换证采用重建 Credentials、Client 与 Handler，不引入全局下载器和隐式更新协程；正在运行的请求使用各自的认证快照。
+证书更新采用重建 Credentials、Client、ArtifactBuilder 与 Handler 的方式，不使用全局下载器或隐式更新协程；运行中的请求使用已绑定的认证快照。项目首版尚未发布，公开 API 只按当前 V3 设计维护。
 
 ## 9. 验证与验收
 
@@ -274,7 +262,7 @@ C1 可与 V3 里程碑合并实施；C3 在 P5 完成。首期本地换证采用
 | 配置隔离 | 两套配置工厂不能混传，公共选项不能覆盖模式、Signer 或 Verifier |
 | 构造边界 | nil、typed nil、缺失算法对象、未知模式、模式/证书能力矛盾均在构造阶段失败 |
 | 快照稳定 | Getter 不被执行流程反复读取，外部可变输入不污染已构造实例 |
-| 公钥回归 | 原有签名、验签、ctx、日志、网络错误和资源关闭用例继续通过 |
+| 公钥行为 | 签名、验签、ctx、日志、网络错误和资源关闭用例通过 |
 | 证书回归 | 错根、错角色、私钥不匹配、过期、未知标识、多证书选择均有独立用例 |
 | 能力要求 | 证书要求在统一 Do 路径校验，不因 Executor 或自定义 API 绕过 |
 | 泛型数据流 | Operation 类型配对、外部编解码器和非泛型 Executor 保持可用 |

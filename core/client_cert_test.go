@@ -3,12 +3,14 @@ package core_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/tiyee/alipay-sdk-go/core"
+	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
 	"github.com/tiyee/alipay-sdk-go/internal/testutil"
 )
@@ -82,51 +84,37 @@ func TestClientCertModeUnknownSNFails(t *testing.T) {
 }
 
 func TestClientCertModeMissingSNHeader(t *testing.T) {
-	// 契约（core/auth/resolver.go）：证书模式响应缺 alipay-sn 头时，
-	// 本地仅一张可信证书则按该证书验签（与官方对通知的验签方式一致）；
-	// 轮换集合（多张证书）无法唯一确定材料，明确失败，不退化为无验签成功。
-	// 是否与官方 V3 REST 对 alipay-sn 的强制性要求一致，待沙箱核验。
-	t.Run("单张可信证书时回退验签成功", func(t *testing.T) {
-		suite := testutil.NewCertSuite(t)
-		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			node := `{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`
-			for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000012", "resp-nonce-i", "") {
-				w.Header()[key] = value
-			}
-			_, _ = w.Write([]byte(node))
-		}))
-		defer gateway.Close()
-
-		client := newCertClient(t, gateway.URL, suite, suite.AlipayCertPEM)
-		resp, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
-			Body: queryRequest{OutTradeNo: "202611050012"},
-		})
-		if err != nil || !resp.Result.SignatureVerified {
-			t.Fatalf("single trusted cert must verify: %v, %+v", err, resp)
+	for _, count := range []int{1, 2} {
+		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
+			t.Run(fmt.Sprintf("certificates_%d_status_%d", count, status), func(t *testing.T) {
+				suite := testutil.NewCertSuite(t)
+				certs := []string{suite.AlipayCertPEM}
+				if count == 2 {
+					cert, _ := suite.NewSecondAlipayCert(t)
+					certs = append(certs, testutil.CertToPEM(t, cert))
+				}
+				gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					node := `{"code":"invalid-parameter","message":"test","trade_no":"x"}`
+					for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000012", "response-nonce", "") {
+						w.Header()[key] = value
+					}
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(node))
+				}))
+				defer gateway.Close()
+				client := newCertClient(t, gateway.URL, suite, certs...)
+				resp, err := core.Execute(t.Context(), client, newQueryOperation(t), core.Request[queryRequest]{Body: queryRequest{OutTradeNo: "order"}})
+				var certErr *core.CertificateError
+				var selectErr *auth.CertSelectError
+				if !errors.As(err, &certErr) || !errors.As(err, &selectErr) {
+					t.Fatalf("error = %v, want certificate error with selection cause", err)
+				}
+				if resp == nil || resp.Result == nil || resp.Data != nil || resp.Result.SignatureVerified {
+					t.Fatalf("unexpected response: %+v", resp)
+				}
+			})
 		}
-	})
-	t.Run("轮换集合缺 SN 时明确失败", func(t *testing.T) {
-		suite := testutil.NewCertSuite(t)
-		newCert, _ := suite.NewSecondAlipayCert(t)
-		gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			node := `{"trade_no":"x","trade_status":"TRADE_SUCCESS"}`
-			for key, value := range testutil.V3ResponseHeaders(t, []byte(node), "1764000000016", "resp-nonce-m", "") {
-				w.Header()[key] = value
-			}
-			_, _ = w.Write([]byte(node))
-		}))
-		defer gateway.Close()
-
-		client := newCertClient(t, gateway.URL, suite,
-			suite.AlipayCertPEM, testutil.CertToPEM(t, newCert))
-		_, err := core.Execute(context.Background(), client, newQueryOperation(t), core.Request[queryRequest]{
-			Body: queryRequest{OutTradeNo: "202611050016"},
-		})
-		var certErr *core.CertificateError
-		if !errors.As(err, &certErr) {
-			t.Fatalf("expected *core.CertificateError, got %v", err)
-		}
-	})
+	}
 }
 
 func TestClientCertModeTamperedResponseFails(t *testing.T) {
@@ -202,5 +190,41 @@ func TestClientCertModeSignedErrorClassified(t *testing.T) {
 	var apiErr *core.APIError
 	if !errors.As(err, &apiErr) || !apiErr.Verified || apiErr.Code != "ACQ.TRADE_NOT_EXIST" {
 		t.Fatalf("error = %v, want verified ACQ.TRADE_NOT_EXIST", err)
+	}
+}
+
+func TestClientRejectsMissingResponseSignatureMetadata(t *testing.T) {
+	for _, missing := range []string{"alipay-timestamp", "alipay-nonce"} {
+		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
+			t.Run(fmt.Sprintf("%s_%d", missing, status), func(t *testing.T) {
+				gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					body := []byte(`{"code":"invalid-parameter","message":"test","trade_no":"order"}`)
+					timestamp, nonce := "1764000000012", "response-nonce"
+					if missing == "alipay-timestamp" {
+						timestamp = ""
+					} else {
+						nonce = ""
+					}
+					// 即便按空字段计算的签名有效，缺少协议字段也必须报错。
+					headers := testutil.V3ResponseHeaders(t, body, timestamp, nonce, "")
+					headers.Del(missing)
+					for name, values := range headers {
+						w.Header()[name] = values
+					}
+					w.WriteHeader(status)
+					_, _ = w.Write(body)
+				}))
+				defer gateway.Close()
+				client := newTestClient(t, gateway.URL)
+				response, err := core.Execute(t.Context(), client, newQueryOperation(t), core.Request[queryRequest]{Body: queryRequest{OutTradeNo: "order"}})
+				var protocolErr *core.ProtocolError
+				if !errors.As(err, &protocolErr) || !strings.Contains(protocolErr.Reason, missing) {
+					t.Fatalf("error = %v, want missing %s protocol error", err, missing)
+				}
+				if response == nil || response.Data != nil || response.Result == nil || response.Result.SignatureVerified {
+					t.Fatalf("unexpected response: %+v", response)
+				}
+			})
+		}
 	}
 }

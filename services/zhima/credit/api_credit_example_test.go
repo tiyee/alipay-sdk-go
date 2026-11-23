@@ -1,9 +1,7 @@
 package credit_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 	"github.com/tiyee/alipay-sdk-go/core/option"
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
 	"github.com/tiyee/alipay-sdk-go/internal/sandbox"
 	credit "github.com/tiyee/alipay-sdk-go/services/zhima/credit"
 	"github.com/tiyee/alipay-sdk-go/utils"
@@ -195,10 +194,8 @@ func ExampleService_PayAfterUseCreditAgreementQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PayAfterUseCreditAgreementQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PayAfterUseCreditAgreementQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -206,7 +203,7 @@ func ExampleService_PayAfterUseCreditAgreementQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PayAfterUseCreditAgreementQuery(ctx, *request, callOptions...)
+	response, err := svc.PayAfterUseCreditAgreementQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -303,10 +300,8 @@ func ExampleService_PayAfterUseCreditAgreementTransfer() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PayAfterUseCreditAgreementTransferRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PayAfterUseCreditAgreementTransferRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -314,7 +309,7 @@ func ExampleService_PayAfterUseCreditAgreementTransfer() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PayAfterUseCreditAgreementTransfer(ctx, *request, callOptions...)
+	response, err := svc.PayAfterUseCreditAgreementTransfer(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -407,10 +402,8 @@ func ExampleService_PayAfterUseCreditBizOrderFinish() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PayAfterUseCreditBizOrderFinishRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PayAfterUseCreditBizOrderFinishRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -418,7 +411,7 @@ func ExampleService_PayAfterUseCreditBizOrderFinish() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PayAfterUseCreditBizOrderFinish(ctx, *request, callOptions...)
+	response, err := svc.PayAfterUseCreditBizOrderFinish(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -515,10 +508,8 @@ func ExampleService_PayAfterUseCreditBizOrderOrder() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PayAfterUseCreditBizOrderOrderRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PayAfterUseCreditBizOrderOrderRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -526,7 +517,7 @@ func ExampleService_PayAfterUseCreditBizOrderOrder() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PayAfterUseCreditBizOrderOrder(ctx, *request, callOptions...)
+	response, err := svc.PayAfterUseCreditBizOrderOrder(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -619,10 +610,8 @@ func ExampleService_PeZmGoAgreementQuery() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoAgreementQueryRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoAgreementQueryRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -630,7 +619,7 @@ func ExampleService_PeZmGoAgreementQuery() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoAgreementQuery(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoAgreementQuery(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -727,10 +716,8 @@ func ExampleService_PeZmGoAgreementUnsign() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoAgreementUnsignRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoAgreementUnsignRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -738,7 +725,7 @@ func ExampleService_PeZmGoAgreementUnsign() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoAgreementUnsign(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoAgreementUnsign(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -831,10 +818,8 @@ func ExampleService_PeZmGoBizOptClose() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoBizOptCloseRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoBizOptCloseRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -842,7 +827,7 @@ func ExampleService_PeZmGoBizOptClose() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoBizOptClose(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoBizOptClose(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -935,10 +920,8 @@ func ExampleService_PeZmGoCumulationSync() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoCumulationSyncRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoCumulationSyncRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -946,7 +929,7 @@ func ExampleService_PeZmGoCumulationSync() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoCumulationSync(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoCumulationSync(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1039,10 +1022,8 @@ func ExampleService_PeZmGoPreOrderCreate() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoPreOrderCreateRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoPreOrderCreateRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1050,7 +1031,7 @@ func ExampleService_PeZmGoPreOrderCreate() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoPreOrderCreate(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoPreOrderCreate(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1143,10 +1124,8 @@ func ExampleService_PeZmGoSettleApply() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoSettleApplyRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoSettleApplyRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1154,7 +1133,7 @@ func ExampleService_PeZmGoSettleApply() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoSettleApply(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoSettleApply(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1251,10 +1230,8 @@ func ExampleService_PeZmGoSettleRefund() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoSettleRefundRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoSettleRefundRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1262,7 +1239,7 @@ func ExampleService_PeZmGoSettleRefund() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoSettleRefund(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoSettleRefund(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")
@@ -1355,10 +1332,8 @@ func ExampleService_PeZmGoSettleUnfreeze() {
 		fmt.Println("读取请求文件失败")
 		return
 	}
-	var request *credit.PeZmGoSettleUnfreezeRequest
-	decoder := json.NewDecoder(bytes.NewReader(requestJSON))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil || !json.Valid(requestJSON) || request == nil {
+	request, err := requestfile.Decode[credit.PeZmGoSettleUnfreezeRequest](requestJSON)
+	if err != nil {
 		fmt.Println("请求必须为与请求类型匹配的 JSON 对象")
 		return
 	}
@@ -1366,7 +1341,7 @@ func ExampleService_PeZmGoSettleUnfreeze() {
 	if token := os.Getenv("ALIPAY_APP_AUTH_TOKEN"); token != "" {
 		callOptions = append(callOptions, core.WithAppAuthToken(token))
 	}
-	response, err := svc.PeZmGoSettleUnfreeze(ctx, *request, callOptions...)
+	response, err := svc.PeZmGoSettleUnfreeze(ctx, request, callOptions...)
 	if err != nil {
 		// 不直接输出原始错误或报文，以免泄露业务参数与令牌。
 		fmt.Println("接口调用失败")

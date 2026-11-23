@@ -41,7 +41,7 @@ func (r OrderPayRequest) validate() error {
 	if r.OutRequestNo == "" {
 		return &core.ValidationError{Field: "out_request_no", Reason: "out_request_no is required"}
 	}
-	return tradevalidate.Amount(r.TotalAmount, "total_amount")
+	return tradevalidate.OrderAmount(r.TotalAmount, "total_amount")
 }
 
 // OrderSettleRequest 是 alipay.trade.order.settle（统一收单交易结算）的请求。

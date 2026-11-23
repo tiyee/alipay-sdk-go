@@ -2,11 +2,14 @@ package core
 
 import (
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/tiyee/alipay-sdk-go/core/auth"
 )
@@ -72,7 +75,8 @@ type Settings struct {
 	HTTPClient *http.Client
 	// RequestTimeout 是单次请求超时；零值使用 DefaultRequestTimeout。
 	RequestTimeout time.Duration
-	// MaxResponseBytes 是响应体大小上限；零值使用 DefaultMaxResponseBytes。
+	// MaxResponseBytes 是响应体大小上限；零值使用 DefaultMaxResponseBytes，
+	// 负数及 MaxInt64 无效。
 	MaxResponseBytes int64
 	// Logger 是结构化日志 Logger；nil 表示静默。
 	Logger *slog.Logger
@@ -96,7 +100,7 @@ type authSnapshot struct {
 // 拒绝 nil 与 typed nil；要求已定义模式、非空算法对象与完整材料；
 // 证书模式必须同时具备证书身份能力。不访问网络、不下载证书。
 func bindCredentials(credentials auth.Credentials) (authSnapshot, error) {
-	if credentials == nil || isNilCredentials(credentials) {
+	if isNilConfigValue(credentials) {
 		return authSnapshot{}, &ConfigError{Field: "credentials", Reason: "credentials is required"}
 	}
 	if err := credentials.Validate(); err != nil {
@@ -109,16 +113,16 @@ func bindCredentials(credentials auth.Credentials) (authSnapshot, error) {
 		return authSnapshot{}, &ConfigError{Field: "auth_mode", Reason: "unknown auth mode"}
 	}
 	signer := credentials.Signer()
-	if signer == nil || isNilCredentials(signer) {
+	if isNilConfigValue(signer) {
 		return authSnapshot{}, &ConfigError{Field: "signer", Reason: "credentials returned a nil signer"}
 	}
 	verifier := credentials.Verifier()
-	if verifier == nil || isNilCredentials(verifier) {
+	if isNilConfigValue(verifier) {
 		return authSnapshot{}, &ConfigError{Field: "verifier", Reason: "credentials returned a nil verifier"}
 	}
 	if signer.Algorithm() != auth.SignatureAlgorithmRSA2 {
 		return authSnapshot{}, &ConfigError{Field: "signer",
-			Reason: "traditional gateway requests require the " + auth.SignatureAlgorithmRSA2.String() + " algorithm"}
+			Reason: "requests require the " + auth.SignatureAlgorithmRSA2.String() + " algorithm"}
 	}
 	snapshot := authSnapshot{mode: mode, signer: signer, verifier: verifier}
 	if mode == auth.ModeCertificate {
@@ -132,13 +136,17 @@ func bindCredentials(credentials auth.Credentials) (authSnapshot, error) {
 			return authSnapshot{}, &ConfigError{Field: "certificate_identity",
 				Reason: "certificate identity is incomplete"}
 		}
+		if !validAuthValue(identity.AppCertificateSN) || !validAuthValue(identity.RootCertificateSN) {
+			return authSnapshot{}, &ConfigError{Field: "certificate_identity",
+				Reason: "certificate identity contains whitespace, control characters or parameter delimiters"}
+		}
 		snapshot.identity = identity
 	}
 	return snapshot, nil
 }
 
-// isNilCredentials 报告接口值是否为 nil 或持有 nil 指针（typed nil）。
-func isNilCredentials(value any) bool {
+// isNilConfigValue 报告配置值是否为 nil 或持有 nil 指针（typed nil）。
+func isNilConfigValue(value any) bool {
 	if value == nil {
 		return true
 	}
@@ -156,7 +164,7 @@ func (s *Settings) applyDefaults() {
 	if s.RequestTimeout == 0 {
 		s.RequestTimeout = DefaultRequestTimeout
 	}
-	if s.MaxResponseBytes <= 0 {
+	if s.MaxResponseBytes == 0 {
 		s.MaxResponseBytes = DefaultMaxResponseBytes
 	}
 	if s.Logger == nil {
@@ -168,41 +176,93 @@ func (s *Settings) validate() error {
 	if strings.TrimSpace(s.AppID) == "" {
 		return &ConfigError{Field: "app_id", Reason: "app id is required"}
 	}
+	if !validAuthValue(s.AppID) {
+		return &ConfigError{Field: "app_id", Reason: "app id must not contain whitespace, control characters or parameter delimiters"}
+	}
 	if s.Mode == auth.ModeUnset {
 		return &ConfigError{Field: "auth_mode", Reason: "auth mode is required"}
 	}
 	if s.RequestTimeout < 0 {
 		return &ConfigError{Field: "request_timeout", Reason: "timeout must not be negative"}
 	}
+	// 读取时额外读一个字节以识别超限，必须为 +1 留出空间。
+	if s.MaxResponseBytes <= 0 || s.MaxResponseBytes == math.MaxInt64 {
+		return &ConfigError{Field: "max_response_bytes", Reason: "response size limit must be positive and less than MaxInt64"}
+	}
+	if s.Logger != nil && isNilConfigValue(s.Logger.Handler()) {
+		return &ConfigError{Field: "logger", Reason: "logger handler must not be nil"}
+	}
+	if s.Gateway != nil {
+		if err := s.validateGateway(); err != nil {
+			return err
+		}
+	}
+	if s.ArtifactGateway != nil {
+		if err := s.validateArtifactGateway(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-// validateGateway 校验 V3 REST 网关基地址；仅 Client 构造路径使用。
+// validAuthValue 防止静态身份字段破坏签名参数及 Authorization 字段边界。
+func validAuthValue(value string) bool {
+	return value != "" && !strings.ContainsAny(value, ",=&\"\\") && strings.IndexFunc(value, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.IsControl(r)
+	}) < 0
+}
+
+// validateGateway 校验 V3 REST 网关基地址。
 func (s *Settings) validateGateway() error {
-	if s.Gateway == nil {
-		return &ConfigError{Field: "gateway",
-			Reason: "gateway is required; set an environment or an explicit gateway"}
+	return validateGatewayURL("gateway", s.Gateway)
+}
+
+// validateArtifactGateway 校验产物提交网关。
+func (s *Settings) validateArtifactGateway() error {
+	return validateGatewayURL("artifact_gateway", s.ArtifactGateway)
+}
+
+func validateGatewayURL(field string, gateway *url.URL) error {
+	if gateway == nil {
+		return &ConfigError{Field: field, Reason: "gateway is required; set an environment or an explicit gateway"}
 	}
-	if s.Gateway.Scheme != "http" && s.Gateway.Scheme != "https" {
-		return &ConfigError{Field: "gateway", Reason: "gateway scheme must be http or https"}
+	if gateway.Scheme != "http" && gateway.Scheme != "https" {
+		return &ConfigError{Field: field, Reason: "gateway scheme must be http or https"}
 	}
-	if s.Gateway.Host == "" {
-		return &ConfigError{Field: "gateway", Reason: "gateway host is required"}
+	if gateway.User != nil || gateway.RawQuery != "" || gateway.ForceQuery || gateway.Fragment != "" || gateway.Opaque != "" || gateway.OmitHost {
+		return &ConfigError{Field: field, Reason: "gateway must be a base URL without credentials, query or fragment"}
+	}
+	if gateway.Hostname() == "" {
+		return &ConfigError{Field: field, Reason: "gateway host is required"}
+	}
+	// 自定义 ClientOption 可以直接提供 URL struct，也要检查 URL 的可解析性。
+	if _, err := url.Parse(gateway.String()); err != nil {
+		return &ConfigError{Field: field, Reason: "invalid gateway url"}
+	}
+	if port := gateway.Port(); port != "" || strings.HasSuffix(gateway.Host, ":") {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return &ConfigError{Field: field, Reason: "gateway port must be between 1 and 65535"}
+		}
 	}
 	return nil
 }
 
-// validateArtifactGateway 校验产物提交网关；仅 ArtifactBuilder 使用。
-func (s *Settings) validateArtifactGateway() error {
-	if s.ArtifactGateway == nil {
-		return &ConfigError{Field: "artifact_gateway",
-			Reason: "artifact gateway is required; set an environment or an explicit artifact gateway"}
+func (s *Settings) validateHTTPClient() error {
+	transport := http.DefaultTransport
+	if client := s.HTTPClient; client != nil {
+		if client.Timeout < 0 {
+			return &ConfigError{Field: "http_client", Reason: "http client timeout must not be negative"}
+		}
+		if client.Jar != nil && isNilConfigValue(client.Jar) {
+			return &ConfigError{Field: "http_client", Reason: "http client cookie jar must not be a typed nil"}
+		}
+		if client.Transport != nil {
+			transport = client.Transport
+		}
 	}
-	if s.ArtifactGateway.Scheme != "http" && s.ArtifactGateway.Scheme != "https" {
-		return &ConfigError{Field: "artifact_gateway", Reason: "artifact gateway scheme must be http or https"}
-	}
-	if s.ArtifactGateway.Host == "" {
-		return &ConfigError{Field: "artifact_gateway", Reason: "artifact gateway host is required"}
+	if isNilConfigValue(transport) {
+		return &ConfigError{Field: "http_client", Reason: "http transport must not be nil"}
 	}
 	return nil
 }
@@ -212,10 +272,13 @@ func signedHTTPClient(configured *http.Client) *http.Client {
 	var client http.Client
 	if configured != nil {
 		client = *configured
-	} else if transport, ok := http.DefaultTransport.(*http.Transport); ok {
-		client.Transport = transport.Clone()
-	} else {
-		client.Transport = http.DefaultTransport
+	}
+	if client.Transport == nil {
+		if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+			client.Transport = transport.Clone()
+		} else {
+			client.Transport = http.DefaultTransport
+		}
 	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &client

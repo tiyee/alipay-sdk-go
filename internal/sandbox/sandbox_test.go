@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tiyee/alipay-sdk-go/examples/requestfile"
+
 	"github.com/tiyee/alipay-sdk-go/core"
 	"github.com/tiyee/alipay-sdk-go/internal/compat"
 	"github.com/tiyee/alipay-sdk-go/internal/testutil"
@@ -74,7 +76,7 @@ func TestDecodeRequest(t *testing.T) {
 		{name: "trailing data", body: `{} {}`, bad: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			req, err := decodeRequest[trade.QueryRequest]([]byte(tt.body))
+			req, err := requestfile.Decode[trade.QueryRequest]([]byte(tt.body))
 			if (err != nil) != tt.bad {
 				t.Fatalf("decodeRequest() error = %v; want error=%t", err, tt.bad)
 			}
@@ -88,11 +90,11 @@ func TestDecodeRequest(t *testing.T) {
 		Token *string `json:"-" query:"auth_token"`
 		Title string  `json:"title"`
 	}
-	mixed, err := decodeRequest[mixedRequest]([]byte(`{"id":"a/b","auth_token":"offline","title":"账单"}`))
+	mixed, err := requestfile.Decode[mixedRequest]([]byte(`{"id":"a/b","auth_token":"offline","title":"账单"}`))
 	if err != nil || mixed.ID != "a/b" || mixed.Token == nil || *mixed.Token != "offline" || mixed.Title != "账单" {
 		t.Fatalf("mixed request = %+v, %v", mixed, err)
 	}
-	if _, err := decodeRequest[mixedRequest]([]byte(`{"id":"a","id":"b"}`)); err == nil {
+	if _, err := requestfile.Decode[mixedRequest]([]byte(`{"id":"a","id":"b"}`)); err == nil {
 		t.Fatal("duplicate path parameter accepted")
 	}
 	// 没有 json 标签的 query/path 字段按 Go 字段名读取；multipart 文件
@@ -100,10 +102,10 @@ func TestDecodeRequest(t *testing.T) {
 	type queryRequest struct {
 		PageSize int64 `query:"page_size"`
 	}
-	if req, err := decodeRequest[queryRequest]([]byte(`{"PageSize":10}`)); err != nil || req.PageSize != 10 {
+	if req, err := requestfile.Decode[queryRequest]([]byte(`{"PageSize":10}`)); err != nil || req.PageSize != 10 {
 		t.Fatalf("query request = %+v, %v", req, err)
 	}
-	if req, err := decodeRequest[core.MultipartFile]([]byte(`{"Filename":"test.txt","Content":"aGVsbG8="}`)); err != nil || string(req.Content) != "hello" {
+	if req, err := requestfile.Decode[core.MultipartFile]([]byte(`{"Filename":"test.txt","Content":"aGVsbG8="}`)); err != nil || string(req.Content) != "hello" {
 		t.Fatalf("multipart request error = %v", err)
 	}
 }
