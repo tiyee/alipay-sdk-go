@@ -1,10 +1,10 @@
 # alipay-sdk-go
 
-支付宝开放平台的第三方 Go SDK，提供交易、退款、转账、账单、授权等接口，以及网页支付、App 支付订单串和支付通知验签能力。**本项目非支付宝官方 SDK。**
+支付宝开放平台的第三方 Go SDK，支持服务端 V3 REST 调用、网页和 App 支付产物构建，以及普通支付通知验签。最低支持 **Go 1.24.0**。
 
-服务端调用仅支持支付宝 V3 REST；网页和 App 支付通过本地生成签名产物接入。
+首次接入可按应用的认证方式，选择[用平台公钥查询沙箱订单](#平台公钥模式)或[用应用证书查询沙箱订单](#应用证书模式)。已有 Client 的项目可直接查找[常用接口](#常用接口速查)。
 
-当前尚未发布首版，也未完成真实沙箱验收。SDK 提供官方 OpenAPI 快照（2026-09-23 版）中的全部 746 个 V3 REST 接口：交易、资金、账单和授权领域的 40 个接口已完成离线验证，其余按快照生成，尚未逐项验证业务规则、证书要求和产品权限。接入前请确认目标接口的产品权限、认证方式并完成实际业务验证；各接口状态见[接口覆盖记录](docs/api-coverage.md)。
+**当前验证范围**　SDK 已为 2026-09-23 版 OpenAPI 快照中的 746 个 REST 接口提供类型化方法。原有 40 个接口完成了离线功能验证，另有 55 个非 GET 接口的离线测试覆盖请求参数位置、正文字节和签名。项目尚未发布首版，也未完成真实沙箱验收。[逐接口覆盖记录](docs/api-coverage.md) · [契约核对范围](docs/api-versions.md)
 
 ## 特性
 
@@ -29,25 +29,14 @@
 
 ## 安装
 
-最低支持 **Go 1.24.0**，仅依赖标准库。在所有支持版本上都可调用领域 Service、`core.Execute`、`notify.Parse` 和 `notify.ParseRequest`。Go 1.27 起另提供对应的泛型方法。库在编译时选择工具链支持的实现，默认构建无需设置标签或实验开关。公开的原始 JSON 类型统一为 `encoding/json.RawMessage`。
+在使用 Go 1.24.0 或更高版本的项目中，安装当前开发分支：
 
 ```sh
 go mod init example.com/alipay-demo  # 已有 Go module 时跳过
-go get github.com/tiyee/alipay-sdk-go
+go get github.com/tiyee/alipay-sdk-go@dev
 ```
 
-按需导入核心包与业务包：
-
-```go
-import (
-	"github.com/tiyee/alipay-sdk-go/core"
-	"github.com/tiyee/alipay-sdk-go/core/auth"
-	"github.com/tiyee/alipay-sdk-go/core/option"
-	"github.com/tiyee/alipay-sdk-go/services/trade"
-)
-```
-
-本文中的 **V3 指支付宝接口协议**，模块路径为 `github.com/tiyee/alipay-sdk-go`，无需追加 `/v3`。项目尚未发布首版，公开 API 仍可能调整。
+Go 会将分支解析为具体版本并记录到项目的 `go.mod`。导入路径使用 `github.com/tiyee/alipay-sdk-go`，其中的包只依赖标准库。所有支持的 Go 版本都可使用领域 Service、`core.Execute`、`notify.Parse` 和 `notify.ParseRequest`。Go 1.27 起也可使用对应的泛型方法。
 
 ## 签名与验签
 
@@ -181,52 +170,7 @@ go run .
 | `ALIPAY_CERT` | 平台验签叶证书，可附带签发它的中间 CA | 对响应和支付通知验签 |
 | `ALIPAY_ROOT_CERT` | 支付宝根证书文件，可能包含多张证书 | 校验支付宝证书并生成根证书标识 |
 
-将上例的 `loadCredentials` 函数替换为下面的实现，保留其余初始化和订单查询代码，即可改为证书模式；无需再配置 `ALIPAY_PUBLIC_KEY`。
-
-```go
-func loadCredentials() (auth.Credentials, error) {
-	privateKeyPEM, err := os.ReadFile(os.Getenv("ALIPAY_APP_PRIVATE_KEY"))
-	if err != nil {
-		return nil, err
-	}
-	privateKey, err := utils.ParsePrivateKeyPKCS8(string(privateKeyPEM))
-	if err != nil {
-		return nil, err
-	}
-	appCertPEM, err := os.ReadFile(os.Getenv("ALIPAY_APP_CERT"))
-	if err != nil {
-		return nil, err
-	}
-	appCert, err := utils.ParseCertificatePEM(string(appCertPEM))
-	if err != nil {
-		return nil, err
-	}
-	alipayCertPEM, err := os.ReadFile(os.Getenv("ALIPAY_CERT"))
-	if err != nil {
-		return nil, err
-	}
-	alipayCerts, err := utils.ParseCertificatesPEM(string(alipayCertPEM))
-	if err != nil {
-		return nil, err
-	}
-	rootCertPEM, err := os.ReadFile(os.Getenv("ALIPAY_ROOT_CERT"))
-	if err != nil {
-		return nil, err
-	}
-	rootCerts, err := utils.ParseRootCertificatesPEM(string(rootCertPEM))
-	if err != nil {
-		return nil, err
-	}
-	return auth.NewCertificateCredentials(auth.CertificateConfig{
-		AppSigner:          privateKey,
-		AppCertificate:     appCert,
-		AlipayCertificates: alipayCerts,
-		RootCertificates:   rootCerts,
-	})
-}
-```
-
-配置当前沙箱应用的材料和订单后运行：
+仓库自带一个用证书查询订单的完整程序。在仓库根目录运行以下命令，将路径和订单号替换为同一沙箱应用的实际值：
 
 ```sh
 export ALIPAY_APP_ID='your-sandbox-app-id'
@@ -235,18 +179,14 @@ export ALIPAY_APP_CERT='/path/to/app-cert.pem'
 export ALIPAY_CERT='/path/to/alipay-cert.pem'
 export ALIPAY_ROOT_CERT='/path/to/alipay-root-cert.pem'
 export ALIPAY_OUT_TRADE_NO='your-order-no'
-go run .
+ALIPAY_ENV=sandbox go run ./examples/certmode
 ```
 
-SDK 在构造凭证时校验证书有效期、私钥与应用证书的匹配关系及支付宝证书的可信关系，并计算所需证书标识。构造失败时请先修正材料，再创建 Client。运行期每次签名和验签还会检查全部配置证书的有效期。任一证书过期即返回 `*core.CertificateError`，错误链中的 `*auth.CertValidityError` 包含配置项及有效期。
+示例调用 `auth.NewCertificateCredentials` 装载证书，再把凭证传给 `core.NewClient`。接入自己的应用时可复用示例中的 `buildCertificateCredentials`。构造时会检查证书有效期、私钥与应用证书是否匹配，以及支付宝证书的信任链。[完整示例](examples/certmode/main.go)
 
-证书凭证也可传给 `trade.NewPaymentProducts` 和 `notify.NewHandler`，网页/App 支付和通知处理沿用对应场景的调用方式。普通支付通知不携带证书标识；通知验签当前要求凭证中只有一张可信支付宝证书，不能直接使用配置了多张支付宝证书的轮换凭证。
+轮换期间，REST 调用可配置多张支付宝验签证书。SDK 按响应头 `alipay-sn` 选证，每次签名和验签都会检查全部配置证书的有效期。即使本次响应用的是新证书，集合中的旧证书过期也会导致调用失败。用 `errors.As` 提取 `*auth.CertValidityError`，可从 `Field`、`NotBefore` 和 `NotAfter` 定位材料；更新或移除失效证书后，重建凭证和使用它的实例。[证书与协议说明](docs/protocol-notes.md)
 
-SDK 不自动下载或更新证书；更新本地证书后需要重建凭证及使用它的实例。轮换期间，上面的 `ALIPAY_CERT` 文件可包含新旧支付宝证书的多个 PEM 块。需要从多个文件装载证书的完整示例见[证书模式示例](examples/certmode/main.go)。遇到 `*core.CertificateError` 时，应检查证书有效期、响应 SN 和本地证书配置。轮换期间旧证书到期也会报错，需更新或移除失效材料后重建实例。证书模式 REST 的带签名响应必须提供 `alipay-sn`、`alipay-timestamp` 和 `alipay-nonce`。通知必须显式提供 `sign_type=RSA2`。
-
-各领域的 `api_*_example_test.go` 覆盖全部 746 个 REST 方法，每个 `ExampleService_<方法名>` 都包含平台证书装载、Client 与 Service 初始化、请求及响应处理。常用接口在示例中直接构造具名请求；其余方法从 `ALIPAY_EXAMPLE_REQUEST` 指向的 JSON 文件读取请求，由 `examples/requestfile` 的 `requestfile.Decode` 严格解码为对应的请求类型，未知字段、重复键、类型错误和 `null` 都会被拒绝。`go test ./...` 只编译这些示例，不执行函数体，也不访问支付宝。配置与请求文件写法见[接口使用示例](docs/api-examples.md)。
-
-各领域已有的 `TestSandboxService_*` 是显式启用的真实沙箱入口：设置 `ALIPAY_SANDBOX=1`、沙箱平台证书和 `ALIPAY_SANDBOX_REQUEST` 请求文件后，才会调用对应的真实接口；未启用时跳过。入口固定使用沙箱环境。步骤、用例矩阵与未确认项见[沙箱验收指引](docs/sandbox-verification.md)。
+网页和 App 支付可将证书凭证传给 `trade.NewPaymentProducts`。普通支付通知没有可供选证的 SN，`notify.NewHandler` 的证书凭证须只含一张可信支付宝验签叶证书。[支付通知接入](#支付通知与订单状态)
 
 ## 选择接入场景
 
@@ -445,7 +385,7 @@ query 编码器支持字符串、布尔、整数及其具名类型、指针和�
 
 `AuthRequirement` 必须显式声明：允许公钥或证书模式时用 `core.AuthRequirementAny`，要求证书模式时用 `core.AuthRequirementCertificate`；凭证不满足要求会在发送请求前失败。Operation 不会自动执行自定义模型的业务校验，应像上例一样显式校验，或在自定义编码器中实现。
 
-需要特殊字段映射或编解码时，用 `core.NewOperation` 传入自己实现的 `core.Encoder[Req]` 和 `core.Decoder[Resp]`；编码器只输出业务参数，签名和公共身份参数由 Client 处理，解码器只接收已通过验签的业务响应。需要独立 Service 或测试替身时，注入 `core.Executor`，用 `core.Execute(ctx, executor, op, req)` 复用同一执行流程。只需默认编解码器且不复用 Operation 时，`core.ExecuteJSON(ctx, executor, spec, core.Request[Req]{Body: req})` 会按 `spec.ParameterMode` 构造 Operation 并调用，执行与错误语义与 `core.Execute` 相同。
+需要特殊字段映射或编解码时，用 `core.NewOperation` 传入自己实现的 `core.Encoder[Req]` 和 `core.Decoder[Resp]`；编码器只输出业务参数，签名和公共身份参数由 Client 处理，解码器只接收已通过验签的业务响应。需要独立 Service 或测试替身时，注入 `core.Executor`，用 `core.Execute(ctx, executor, op, req)` 复用同一执行流程。只需默认编解码器且不复用 Operation 时，`core.ExecuteJSON[Req, Resp](ctx, executor, spec, core.Request[Req]{Body: req})` 会按 `spec.ParameterMode` 构造 Operation 并调用，执行与错误语义与 `core.Execute` 相同。
 
 扩展入口仅支持 SDK 已实现的 V3 REST 传输和认证能力，不能用于传统网关服务端调用、尚未确认 V3 契约的接口或内容加密。网页/App 支付及通知沿用各自入口。完整的 GET、自定义编解码器与独立 Service 示例见[可编译示例](examples/customapi/customapi.go)。
 
@@ -545,10 +485,10 @@ SDK 默认不自动重试。支付、退款、转账等写操作超时后可能�
 
 | 示例 | 内容 | 运行方式（在仓库根目录） |
 | --- | --- | --- |
-| [网页和 App 支付](examples/pagepay/main.go) | 生成电脑网站表单、手机网站链接和 App 订单串 | `go run ./examples/pagepay` |
-| [证书模式](examples/certmode/main.go) | 装载应用证书、根证书和多张支付宝证书 | `go run ./examples/certmode` |
+| [网页和 App 支付](examples/pagepay/main.go) | 生成电脑网站表单、手机网站链接和 App 订单串 | `ALIPAY_ENV=sandbox go run ./examples/pagepay` |
+| [证书模式](examples/certmode/main.go) | 装载应用证书、根证书和多张支付宝证书 | `ALIPAY_ENV=sandbox go run ./examples/certmode` |
 | [支付通知](examples/tradenotify/main.go) | HTTP 通知验签、商户校验与内存幂等演示 | `go run ./examples/tradenotify` |
-| [授权](examples/oauth/main.go) | 用户授权令牌、刷新令牌及应用授权令牌换取 | `go run ./examples/oauth` |
+| [授权](examples/oauth/main.go) | 用户授权令牌、刷新令牌及应用授权令牌换取 | `ALIPAY_ENV=sandbox go run ./examples/oauth` |
 | [日志](examples/logging/main.go) | 标准 slog、自定义 Handler 和日志故障处理 | `go run ./examples/logging`（离线） |
 | [自定义接口](examples/customapi/customapi.go) | 自定义模型、编解码器与独立 Service | `go test ./examples/customapi`（离线） |
 | [请求文件解码](examples/requestfile/decode.go) | 示例与沙箱测试共用的请求 JSON 严格解码 `requestfile.Decode` | `go test ./examples/requestfile`（离线） |
@@ -563,7 +503,9 @@ go test ./...
 go vet ./...
 ```
 
-真实沙箱调用需显式启用；不要将生产凭证或资金操作用于默认测试。
+各领域的 `ExampleService_*` 覆盖 746 个 REST 方法，默认测试只编译这些示例。使用请求文件的示例从 `ALIPAY_EXAMPLE_REQUEST` 读取单个 JSON 对象，并通过 `requestfile.Decode` 检查字段名、重复键和类型。[接口示例与请求文件格式](docs/api-examples.md)
+
+要用真实沙箱验证某个接口，请选择对应的 `TestSandboxService_*`，显式设置 `ALIPAY_SANDBOX=1`，并按该用例提供沙箱证书和 `ALIPAY_SANDBOX_REQUEST` 请求文件。[沙箱验收步骤](docs/sandbox-verification.md)
 
 文档位于 [docs/](docs/)，入口是[文档索引](docs/README.md)。与接入关系最密切的几份：
 
@@ -582,7 +524,6 @@ go vet ./...
 ## 支持范围与更多资料
 
 - 支持公钥和本地证书两种认证方式，使用 RSA2 签名。
-- 746 个 REST 接口中仅 40 个接口及页面支付、通知能力完成离线验证；全部能力均未通过沙箱验收，也没有生产网关验证结果，离线测试通过不代表真实接口可用。
 - 通知解析目前仅支持普通支付通知；其他通知类型需要单独确认契约。
 - 不提供传统网关服务端调用，不支持内容加密、GBK、XML 或 RSA(v1) 签名。
 - [版本变更](CHANGELOG.md)：查看版本记录。
